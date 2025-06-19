@@ -3,35 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bolão Mundial Crazys - Apuração</title>
+    <title>Bolão Mundial Crazys - Apuração em Tempo Real</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Estilos adicionais para uma melhor aparência */
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .table-container {
-            overflow-x: auto; /* Garante que a tabela seja rolável em telas pequenas */
-        }
-        /* Estilo para o placar final e para os pontos, para melhor destaque */
+        body { font-family: 'Inter', sans-serif; }
+        .table-container { overflow-x: auto; }
         .placar-final-input {
-            background-color: #4A5568; /* cinza mais escuro */
-            color: #F7FAFC; /* texto branco */
-            border: 1px solid #718096;
-            border-radius: 0.375rem;
-            width: 5rem; /* 80px */
-            text-align: center;
-            font-weight: bold;
-            padding: 0.5rem;
+            background-color: #4A5568; color: #F7FAFC; border: 1px solid #718096;
+            border-radius: 0.375rem; width: 5rem; text-align: center;
+            font-weight: bold; padding: 0.5rem;
         }
-        .pontos-cell {
-            font-weight: bold;
-            font-size: 1.125rem; /* 18px */
-            text-align: center;
-            color: #68D391; /* verde claro */
+        .pontos-cell { font-weight: bold; font-size: 1.125rem; text-align: center; }
+        .total-points { color: #F6E05E; }
+        .ranking-card {
+            background: linear-gradient(145deg, #4a5568, #2d3748);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
-        .total-points {
-            color: #F6E05E; /* amarelo */
+        .rank-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #4a5568;
+        }
+        .rank-item:last-child { border-bottom: none; }
+        .rank-pos { font-size: 1.25rem; font-weight: bold; color: #a0aec0; width: 3rem; }
+        .rank-name { font-weight: 600; color: #e2e8f0; }
+        .rank-score { font-size: 1.5rem; font-weight: bold; color: #f6e05e; }
+        .trophy { margin-right: 0.5rem; }
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(17, 24, 39, 0.8);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 9999; color: white; font-size: 1.5rem;
         }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -40,11 +46,23 @@
 </head>
 <body class="bg-gray-900 text-gray-200">
 
-    <div class="container mx-auto p-4 md:p-8">
+    <!-- Indicador de Carregamento -->
+    <div id="loading" class="loading-overlay">
+        <p>Conectando ao bolão...</p>
+    </div>
+
+    <div id="app-content" class="container mx-auto p-4 md:p-8" style="display: none;">
         <header class="text-center mb-8">
             <h1 class="text-4xl font-bold text-white">🔥 Bolão Mundial Crazys 🔥</h1>
-            <p class="text-xl text-gray-400 mt-2">Apuração em Tempo Real</p>
+            <p class="text-xl text-gray-400 mt-2">Apuração em Tempo Real na Nuvem</p>
         </header>
+        
+        <div id="ranking-section" class="mb-8">
+            <div class="ranking-card">
+                <h2 class="text-2xl font-bold text-white mb-4 text-center">🏆 Ranking de Palpiteiros 🏆</h2>
+                <div id="ranking-list"></div>
+            </div>
+        </div>
 
         <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
             <h2 class="text-2xl font-semibold mb-3">Regras de Pontuação</h2>
@@ -63,235 +81,247 @@
                         <th scope="col" class="px-4 py-3">Jogo</th>
                         <th scope="col" class="px-4 py-3">Horário</th>
                         <th scope="col" class="px-4 py-3 text-center">Placar Final</th>
-                        <!-- Cabeçalhos dos participantes serão gerados dinamicamente -->
                     </tr>
                 </thead>
-                <tbody id="bolao-table-body">
-                    <!-- Linhas da tabela serão geradas dinamicamente -->
-                </tbody>
-                <tfoot class="bg-gray-700 font-bold text-white">
-                     <!-- Linha de totais será gerada dinamicamente -->
-                </tfoot>
+                <tbody id="bolao-table-body"></tbody>
+                <tfoot class="bg-gray-700 font-bold text-white"></tfoot>
             </table>
         </div>
     </div>
 
-    <script>
-        // --- BASE DE DADOS DOS PALPITES ---
-        // Todos os dados estão aqui. Para adicionar um novo jogo ou participante, basta editar esta seção.
-        const participants = ["Galego", "ANDRÉ", "ROBERTO", "IAGO", "YASSER", "Walber", "Kleiton", "Oséas"];
+    <script type="module">
+        // --- Importações do Firebase ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
+        // --- Variáveis Globais ---
+        let db;
+        let scoresDocRef;
+
+        const participants = ["Galego", "ANDRÉ", "ROBERTO", "IAGO", "YASSER", "Walber", "Kleiton", "Oséas"];
         const games = [
-            // Grupo A
             { grupo: 'A', jogo: 'Palmeiras x Al Ahly', horario: '13h', palpites: { Galego: "2x0", ANDRÉ: "3x0", ROBERTO: "2x1", IAGO: "2x0", YASSER: "1x1", Walber: "2x0", Kleiton: "3x2", Oséas: "2x0" } },
             { grupo: 'A', jogo: 'Inter Miami x Porto', horario: '16h', palpites: { Galego: "1x2", ANDRÉ: "1x2", ROBERTO: "0x2", IAGO: "0x2", YASSER: "0x2", Walber: "0x2", Kleiton: "1x2", Oséas: "1x2" } },
-            // Grupo B
             { grupo: 'B', jogo: 'Seattle x Atlético', horario: '19h', palpites: { Galego: "0x2", ANDRÉ: "0x3", ROBERTO: "0x3", IAGO: "0x3", YASSER: "0x2", Walber: "0x3", Kleiton: "0x3", Oséas: "0x2" } },
             { grupo: 'B', jogo: 'PSG x Botafogo', horario: '22h', palpites: { Galego: "4x1", ANDRÉ: "3x1", ROBERTO: "5x0", IAGO: "4x1", YASSER: "4x0", Walber: "4x0", Kleiton: "2x1", Oséas: "3x1" } },
-            // Grupo C
             { grupo: 'C', jogo: 'Benfica x Auckland', horario: '13h', palpites: { Galego: "8x0", ANDRÉ: "2x0", ROBERTO: "7x0", IAGO: "6x0", YASSER: "5x0", Walber: "6x0", Kleiton: "3x0", Oséas: "5x0" } },
             { grupo: 'C', jogo: 'Bayern x Boca', horario: '22h', palpites: { Galego: "3x1", ANDRÉ: "5x0", ROBERTO: "3x0", IAGO: "3x1", YASSER: "2x1", Walber: "4x0", Kleiton: "2x0", Oséas: "4x0" } },
-            // Grupo D
             { grupo: 'D', jogo: 'Flamengo x Chelsea', horario: '15h', palpites: { Galego: "1x1", ANDRÉ: "1x3", ROBERTO: "1x3", IAGO: "2x0", YASSER: "2x1", Walber: "0x1", Kleiton: "1x2", Oséas: "0x0" } },
             { grupo: 'D', jogo: 'LAFC x Espérance', horario: '19h', palpites: { Galego: "1x0", ANDRÉ: "2x0", ROBERTO: "1x0", IAGO: "0x0", YASSER: "1x1", Walber: "2x0", Kleiton: "1x0", Oséas: "2x0" } },
-            // Grupo E
             { grupo: 'E', jogo: 'Inter x Urawa Red', horario: '16h', palpites: { Galego: "2x0", ANDRÉ: "3xP", ROBERTO: "2x0", IAGO: "4x0", YASSER: "3x0", Walber: "3x0", Kleiton: "4x1", Oséas: "3x0" } },
             { grupo: 'E', jogo: 'River x Monterrey', horario: '22h', palpites: { Galego: "2x1", ANDRÉ: "1x1", ROBERTO: "1x1", IAGO: "2x2", YASSER: "1x1", Walber: "2x1", Kleiton: "2x2", Oséas: "2x1" } },
-            // Grupo F
             { grupo: 'F', jogo: 'Sundows x Dortmund', horario: '13h', palpites: { Galego: "0x5", ANDRÉ: "0x2", ROBERTO: "0x2", IAGO: "1x2", YASSER: "0x2", Walber: "1x2", Kleiton: "0x2", Oséas: "0x3" } },
             { grupo: 'F', jogo: 'Fluminense x Ulsan', horario: '19h', palpites: { Galego: "3x1", ANDRÉ: "2x0", ROBERTO: "3x1", IAGO: "2x0", YASSER: "2x0", Walber: "2x0", Kleiton: "2x0", Oséas: "2x0" } },
-            // Grupo G
             { grupo: 'G', jogo: 'Juventus x WAC', horario: '13h', palpites: { Galego: "3x1", ANDRÉ: "4x1", ROBERTO: "3x0", IAGO: "3x0", YASSER: "3x1", Walber: "3x0", Kleiton: "2x1", Oséas: "3x0" } },
             { grupo: 'G', jogo: 'Man City x Al-Ain', horario: '22h', palpites: { Galego: "6x0", ANDRÉ: "5x0", ROBERTO: "4x0", IAGO: "5x0", YASSER: "5x0", Walber: "5x0", Kleiton: "4x0", Oséas: "5x0" } },
-            // Grupo H
             { grupo: 'H', jogo: 'Real Madrid x Pachuca', horario: '16h', palpites: { Galego: "3x0", ANDRÉ: "4x0", ROBERTO: "4x1", IAGO: "3x0", YASSER: "3x1", Walber: "2x0", Kleiton: "3x0", Oséas: "3x0" } },
             { grupo: 'H', jogo: 'RB Salzburg x Al Hilal', horario: '19h', palpites: { Galego: "1x2", ANDRÉ: "2x1", ROBERTO: "1x2", IAGO: "1x2", YASSER: "1x2", Walber: "1x3", Kleiton: "1x1", Oséas: "1x2" } },
         ];
-        
-        // --- FUNÇÕES DE LÓGICA DO PROGRAMA ---
 
-        /**
-         * Normaliza uma string de placar para o formato "GxG" (ex: "2x0").
-         * Remove espaços e substitui "a" ou "A" por "x".
-         * @param {string} score - A string do placar a ser normalizada.
-         * @returns {string} - O placar normalizado.
-         */
+        // --- LÓGICA DO PROGRAMA ---
         function normalizeScore(score) {
             if (typeof score !== 'string' || !score) return "";
             return score.replace(/\s/g, '').replace(/a/i, 'x');
         }
 
-        /**
-         * Extrai o resultado de um jogo (vitória do time da casa, vitória do visitante ou empate).
-         * @param {string} score - O placar no formato "GxG".
-         * @returns {number} - 1 para vitória da casa, -1 para vitória do visitante, 0 para empate.
-         */
         function getGameResult(score) {
             try {
                 const parts = score.split('x').map(Number);
-                if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) {
-                    return null; // Formato inválido
-                }
+                if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
                 return Math.sign(parts[0] - parts[1]);
-            } catch (e) {
-                return null;
-            }
+            } catch (e) { return null; }
         }
 
-        /**
-         * Calcula os pontos para um determinado palpite com base no placar final.
-         * @param {string} palpite - O palpite do participante.
-         * @param {string} placarFinal - O placar final real do jogo.
-         * @returns {number} - A pontuação (3, 1, ou 0).
-         */
         function calculatePoints(palpite, placarFinal) {
             const placarFinalNorm = normalizeScore(placarFinal);
-            if (!placarFinalNorm || placarFinalNorm.indexOf('x') === -1) {
-                return 0; // Se o placar final não for válido, não há pontos.
-            }
-            
+            if (!placarFinalNorm || placarFinalNorm.indexOf('x') === -1) return 0;
             const palpiteNorm = normalizeScore(palpite);
-            if (!palpiteNorm || palpite.toUpperCase().includes('P')) {
-                return 0; // Palpites inválidos ou com "P" não pontuam.
-            }
-
-            // 3 pontos para o placar exato
-            if (palpiteNorm === placarFinalNorm) {
-                return 3;
-            }
-
-            // 1 ponto para o resultado correto
+            if (!palpiteNorm || palpite.toUpperCase().includes('P')) return 0;
+            if (palpiteNorm === placarFinalNorm) return 3;
             const resultadoPalpite = getGameResult(palpiteNorm);
             const resultadoFinal = getGameResult(placarFinalNorm);
-
-            if (resultadoPalpite !== null && resultadoPalpite === resultadoFinal) {
-                return 1;
-            }
-            
-            // 0 pontos para o resto
+            if (resultadoPalpite !== null && resultadoPalpite === resultadoFinal) return 1;
             return 0;
         }
+        
+        // --- FUNÇÕES FIREBASE ---
+        async function initializeFirebase() {
+            try {
+                // SUAS CREDENCIAIS FORAM INSERIDAS AQUI
+                const firebaseConfig = {
+                  apiKey: "AIzaSyD2EKVkjJaCEFXeZYN6p0XTC6BmpDUrdBw",
+                  authDomain: "bolaocrazys.firebaseapp.com",
+                  projectId: "bolaocrazys",
+                  storageBucket: "bolaocrazys.firebasestorage.app",
+                  messagingSenderId: "912073059842",
+                  appId: "1:912073059842:web:20846e2ba7a1e907f8411b",
+                  measurementId: "G-FST2TL48V4"
+                };
 
-        /**
-         * Atualiza todas as pontuações na tabela com base nos valores dos campos de "Placar Final".
-         */
-        function updateAllScores() {
+                if (!firebaseConfig.apiKey) throw new Error("Configuração do Firebase não encontrada.");
+
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                const auth = getAuth(app);
+                
+                // Como você configurou o login anônimo, o programa irá usá-lo.
+                await signInAnonymously(auth);
+                
+                // O caminho do documento agora é simples, dentro do seu projeto.
+                const docPath = `bolao/liveScores`;
+                scoresDocRef = doc(db, docPath);
+
+                setupRealtimeListener();
+
+            } catch (error) {
+                console.error("Erro ao inicializar Firebase:", error);
+                const loadingEl = document.getElementById('loading');
+                loadingEl.innerHTML = `<p style="color:red;">Erro de conexão: ${error.message}</p>`;
+            }
+        }
+        
+        function setupRealtimeListener() {
+            onSnapshot(scoresDocRef, (docSnapshot) => {
+                const loadingEl = document.getElementById('loading');
+                const appEl = document.getElementById('app-content');
+                loadingEl.style.display = 'none';
+                appEl.style.display = 'block';
+
+                let scores = [];
+                if (docSnapshot.exists() && docSnapshot.data().scores) {
+                    scores = docSnapshot.data().scores;
+                } else {
+                    scores = Array(games.length).fill("");
+                    saveScoresToFirestore(scores);
+                }
+                
+                renderTable(scores);
+                updateAllScoresUI(scores);
+            }, (error) => {
+                console.error("Erro no listener do Firestore:", error);
+                const loadingEl = document.getElementById('loading');
+                loadingEl.innerHTML = `<p style="color:red;">Erro ao escutar dados: ${error.message}</p>`;
+            });
+        }
+
+        async function saveScoresToFirestore(scores) {
+            if (!scoresDocRef) return;
+            try {
+                await setDoc(scoresDocRef, { scores: scores });
+            } catch (error) {
+                console.error("Erro ao salvar no Firestore:", error);
+            }
+        }
+
+        // --- ATUALIZAÇÃO DA INTERFACE ---
+        function updateAllScoresUI(currentScores) {
             const totals = participants.reduce((acc, name) => ({ ...acc, [name]: 0 }), {});
-
             games.forEach((game, index) => {
-                const finalScoreInput = document.getElementById(`score-input-${index}`);
-                const finalScore = finalScoreInput.value;
-
+                const finalScore = currentScores[index] || "";
                 participants.forEach(participant => {
-                    const palpite = game.palpites[participant];
-                    const points = calculatePoints(palpite, finalScore);
-                    
+                    const points = calculatePoints(game.palpites[participant], finalScore);
                     const pointsCell = document.getElementById(`points-${participant.replace(/\s|É/g, '')}-${index}`);
-                    pointsCell.textContent = points;
-                    
-                    // Adiciona cor baseada na pontuação
-                    pointsCell.classList.remove('text-green-400', 'text-yellow-400', 'text-red-400');
-                    if (points === 3) {
-                        pointsCell.classList.add('text-green-400');
-                    } else if (points === 1) {
-                        pointsCell.classList.add('text-yellow-400');
-                    } else {
-                        pointsCell.classList.add('text-red-400');
+                    if(pointsCell) {
+                        pointsCell.textContent = points;
+                        pointsCell.classList.remove('text-green-400', 'text-yellow-400', 'text-red-400');
+                        pointsCell.classList.add(points === 3 ? 'text-green-400' : points === 1 ? 'text-yellow-400' : 'text-red-400');
                     }
-                    
                     totals[participant] += points;
                 });
             });
 
-            // Atualiza a linha de totais no rodapé da tabela
             participants.forEach(participant => {
                 const totalCell = document.getElementById(`total-points-${participant.replace(/\s|É/g, '')}`);
-                totalCell.textContent = totals[participant];
+                if(totalCell) totalCell.textContent = totals[participant];
+            });
+            updateRanking(totals);
+        }
+
+        function updateRanking(totals) {
+            const rankingList = document.getElementById('ranking-list');
+            if (!rankingList) return;
+            rankingList.innerHTML = '';
+            const sortedParticipants = Object.entries(totals).map(([name, score]) => ({ name, score })).sort((a, b) => b.score - a.score);
+            const trophies = ['🥇', '🥈', '🥉'];
+            sortedParticipants.forEach((p, index) => {
+                rankingList.innerHTML += `
+                    <div class="rank-item">
+                        <span class="rank-pos">${index < 3 ? `<span class="trophy">${trophies[index]}</span>` : ''}${index + 1}º</span>
+                        <span class="rank-name">${p.name}</span>
+                        <span class="rank-score">${p.score}</span>
+                    </div>`;
             });
         }
 
-
-        /**
-         * Renderiza a tabela inteira (cabeçalho, corpo e rodapé) com base nos dados.
-         */
-        function renderTable() {
+        function renderTable(loadedScores) {
             const thead = document.querySelector('thead tr');
             const tbody = document.getElementById('bolao-table-body');
             const tfoot = document.createElement('tr');
+            thead.innerHTML = `<th scope="col" class="px-4 py-3">Grupo</th><th scope="col" class="px-4 py-3">Jogo</th><th scope="col" class="px-4 py-3">Horário</th><th scope="col" class="px-4 py-3 text-center">Placar Final</th>`;
+            tbody.innerHTML = '';
             tfoot.className = 'bg-gray-700 font-bold text-white text-lg';
-
-            // 1. Renderiza o cabeçalho dos participantes
+            
             participants.forEach(name => {
-                const thPalpite = document.createElement('th');
-                thPalpite.scope = 'col';
-                thPalpite.className = 'px-4 py-3 text-center';
-                thPalpite.textContent = name;
-                thead.appendChild(thPalpite);
-
-                const thPontos = document.createElement('th');
-                thPontos.scope = 'col';
-                thPontos.className = 'px-4 py-3 text-center bg-gray-600';
-                thPontos.textContent = 'Pts';
-                thead.appendChild(thPontos);
+                thead.innerHTML += `<th class="px-4 py-3 text-center">${name}</th><th class="px-4 py-3 text-center bg-gray-600">Pts</th>`;
             });
 
-            // 2. Renderiza as linhas dos jogos
             games.forEach((game, index) => {
-                const row = document.createElement('tr');
-                row.className = 'border-b border-gray-700 hover:bg-gray-600/50';
-
-                row.innerHTML = `
-                    <td class="px-4 py-3">${game.grupo}</td>
-                    <td class="px-4 py-3 font-medium text-white">${game.jogo}</td>
-                    <td class="px-4 py-3">${game.horario}</td>
-                    <td class="px-4 py-3 text-center">
-                        <input type="text" id="score-input-${index}" class="placar-final-input" oninput="updateAllScores()">
-                    </td>
-                `;
-
+                const scoreValue = loadedScores[index] || '';
+                let rowHTML = `
+                    <tr class="border-b border-gray-700 hover:bg-gray-600/50">
+                        <td class="px-4 py-3">${game.grupo}</td>
+                        <td class="px-4 py-3 font-medium text-white">${game.jogo}</td>
+                        <td class="px-4 py-3">${game.horario}</td>
+                        <td class="px-4 py-3 text-center">
+                            <input type="text" id="score-input-${index}" class="placar-final-input" value="${scoreValue}">
+                        </td>`;
                 participants.forEach(participant => {
                     const palpite = game.palpites[participant] || '-';
-                    // Sanitiza o nome para usar como parte do ID
                     const sanitizedName = participant.replace(/\s|É/g, '');
-
-                    const palpiteCell = document.createElement('td');
-                    palpiteCell.className = 'px-4 py-3 text-center font-mono';
-                    palpiteCell.textContent = palpite;
-                    row.appendChild(palpiteCell);
-
-                    const pointsCell = document.createElement('td');
-                    pointsCell.className = 'px-4 py-3 pontos-cell bg-gray-900/50';
-                    pointsCell.id = `points-${sanitizedName}-${index}`;
-                    pointsCell.textContent = '0';
-                    row.appendChild(pointsCell);
+                    rowHTML += `
+                        <td class="px-4 py-3 text-center font-mono">${palpite}</td>
+                        <td class="px-4 py-3 pontos-cell bg-gray-900/50" id="points-${sanitizedName}-${index}">0</td>`;
                 });
-
-                tbody.appendChild(row);
+                rowHTML += `</tr>`;
+                tbody.innerHTML += rowHTML;
+            });
+            
+            games.forEach((_, index) => {
+                 document.getElementById(`score-input-${index}`).addEventListener('input', (e) => {
+                    const currentScores = [];
+                    games.forEach((g, i) => {
+                       currentScores[i] = document.getElementById(`score-input-${i}`).value;
+                    });
+                    saveScoresToFirestore(currentScores);
+                 });
             });
 
-            // 3. Renderiza a linha de totais
             tfoot.innerHTML = `<td colspan="4" class="px-4 py-4 text-right uppercase tracking-wider">Pontuação Total</td>`;
             participants.forEach(participant => {
                 const sanitizedName = participant.replace(/\s|É/g, '');
-                const totalPalpiteCell = document.createElement('td');
-                totalPalpiteCell.className = 'px-4 py-4';
-                tfoot.appendChild(totalPalpiteCell);
-
-                const totalPointsCell = document.createElement('td');
-                totalPointsCell.className = 'px-4 py-4 text-center total-points text-2xl';
-                totalPointsCell.id = `total-points-${sanitizedName}`;
-                totalPointsCell.textContent = '0';
-                tfoot.appendChild(totalPointsCell);
+                tfoot.innerHTML += `<td class="px-4 py-4"></td><td class="px-4 py-4 text-center total-points text-2xl" id="total-points-${sanitizedName}">0</td>`;
             });
-            document.querySelector('table').appendChild(document.createElement('tfoot')).appendChild(tfoot);
+            
+            const tfootElement = document.querySelector('table tfoot');
+            if(tfootElement) {
+                tfootElement.innerHTML = '';
+                tfootElement.appendChild(tfoot);
+            }
         }
 
-        // --- INICIALIZAÇÃO DO PROGRAMA ---
-        // Garante que o script rode apenas depois que a página inteira for carregada.
+        // --- INICIALIZAÇÃO ---
         document.addEventListener('DOMContentLoaded', () => {
-            renderTable();
+            initializeFirebase();
         });
     </script>
-
 </body>
 </html>
+```
+
+Agora, o seu próximo passo é simples:
+1.  **Copie** este código atualizado.
+2.  **Salve-o** como `index.html`, substituindo a versão antiga.
+3.  **Hospede** este novo arquivo no Netlify (ou no seu serviço de preferência), substituindo o site antigo.
+
+Assim que o novo site estiver no ar, ele vai se conectar ao seu banco de dados Firebase e funcionará para todos os seus amig
