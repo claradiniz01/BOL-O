@@ -8,10 +8,15 @@
     <style>
         body { font-family: 'Inter', sans-serif; }
         .table-container { overflow-x: auto; }
-        .placar-final-input {
+        .score-input {
             background-color: #4A5568; color: #F7FAFC; border: 1px solid #718096;
             border-radius: 0.375rem; width: 5rem; text-align: center;
             font-weight: bold; padding: 0.5rem;
+        }
+        .score-input:disabled {
+            background-color: #2D3748;
+            color: #718096;
+            cursor: not-allowed;
         }
         .pontos-cell { font-weight: bold; font-size: 1.125rem; text-align: center; }
         .total-points { color: #F6E05E; }
@@ -39,6 +44,23 @@
             display: flex; justify-content: center; align-items: center;
             z-index: 9999; color: white; font-size: 1.5rem;
         }
+        .remove-participant-btn {
+            cursor: pointer;
+            color: #f56565;
+            font-weight: bold;
+            margin-left: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            transition: background-color 0.2s;
+        }
+        .remove-participant-btn:hover {
+            background-color: #c53030;
+            color: white;
+        }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -53,7 +75,7 @@
 
     <div id="app-content" class="container mx-auto p-4 md:p-8" style="display: none;">
         <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-white">🔥 Bolão Mundial Crazys 🔥</h1>
+            <h1 class="text-4xl font-bold text-white">🔥 Bolão Mundial Crazys - 3ª Rodada 🔥</h1>
             <p class="text-xl text-gray-400 mt-2">Apuração em Tempo Real na Nuvem</p>
         </header>
         
@@ -65,6 +87,7 @@
         </div>
 
         <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
+             <div id="deadline-message" class="text-center mb-4 text-lg font-bold"></div>
             <h2 class="text-2xl font-semibold mb-3">Regras de Pontuação</h2>
             <ul class="list-disc list-inside text-gray-300">
                 <li><span class="font-bold text-green-400">3 pontos:</span> Acertar o placar exato do jogo.</li>
@@ -72,6 +95,17 @@
                 <li><span class="font-bold text-red-400">0 pontos:</span> Errar o resultado do jogo.</li>
             </ul>
         </div>
+        
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
+            <h2 class="text-2xl font-semibold mb-4">Gerenciar Participantes</h2>
+            <form id="add-participant-form" class="flex flex-col sm:flex-row gap-4">
+                <input type="text" id="new-participant-name" placeholder="Nome do novo participante" class="score-input flex-grow bg-gray-700 border-gray-600" required>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                    Adicionar Participante
+                </button>
+            </form>
+        </div>
+
 
         <div class="table-container bg-gray-800 rounded-lg shadow-lg">
             <table class="min-w-full text-sm text-left">
@@ -97,32 +131,72 @@
 
         // --- Variáveis Globais ---
         let db;
-        let scoresDocRef;
+        let bolaoDocRef;
+        let localData = { games: [], finalScores: [], participants: [] }; 
 
-        const participants = ["Galego", "ANDRÉ", "ROBERTO", "IAGO", "YASSER", "Walber", "Kleiton", "Oséas"];
-        const games = [
-            { grupo: 'A', jogo: 'Palmeiras x Al Ahly', horario: '13h', palpites: { Galego: "2x0", ANDRÉ: "3x0", ROBERTO: "2x1", IAGO: "2x0", YASSER: "1x1", Walber: "2x0", Kleiton: "3x2", Oséas: "2x0" } },
-            { grupo: 'A', jogo: 'Inter Miami x Porto', horario: '16h', palpites: { Galego: "1x2", ANDRÉ: "1x2", ROBERTO: "0x2", IAGO: "0x2", YASSER: "0x2", Walber: "0x2", Kleiton: "1x2", Oséas: "1x2" } },
-            { grupo: 'B', jogo: 'Seattle x Atlético', horario: '19h', palpites: { Galego: "0x2", ANDRÉ: "0x3", ROBERTO: "0x3", IAGO: "0x3", YASSER: "0x2", Walber: "0x3", Kleiton: "0x3", Oséas: "0x2" } },
-            { grupo: 'B', jogo: 'PSG x Botafogo', horario: '22h', palpites: { Galego: "4x1", ANDRÉ: "3x1", ROBERTO: "5x0", IAGO: "4x1", YASSER: "4x0", Walber: "4x0", Kleiton: "2x1", Oséas: "3x1" } },
-            { grupo: 'C', jogo: 'Benfica x Auckland', horario: '13h', palpites: { Galego: "8x0", ANDRÉ: "2x0", ROBERTO: "7x0", IAGO: "6x0", YASSER: "5x0", Walber: "6x0", Kleiton: "3x0", Oséas: "5x0" } },
-            { grupo: 'C', jogo: 'Bayern x Boca', horario: '22h', palpites: { Galego: "3x1", ANDRÉ: "5x0", ROBERTO: "3x0", IAGO: "3x1", YASSER: "2x1", Walber: "4x0", Kleiton: "2x0", Oséas: "4x0" } },
-            { grupo: 'D', jogo: 'Flamengo x Chelsea', horario: '15h', palpites: { Galego: "1x1", ANDRÉ: "1x3", ROBERTO: "1x3", IAGO: "2x0", YASSER: "2x1", Walber: "0x1", Kleiton: "1x2", Oséas: "0x0" } },
-            { grupo: 'D', jogo: 'LAFC x Espérance', horario: '19h', palpites: { Galego: "1x0", ANDRÉ: "2x0", ROBERTO: "1x0", IAGO: "0x0", YASSER: "1x1", Walber: "2x0", Kleiton: "1x0", Oséas: "2x0" } },
-            { grupo: 'E', jogo: 'Inter x Urawa Red', horario: '16h', palpites: { Galego: "2x0", ANDRÉ: "3x1", ROBERTO: "2x0", IAGO: "4x0", YASSER: "3x0", Walber: "3x0", Kleiton: "4x1", Oséas: "3x0" } },
-            { grupo: 'E', jogo: 'River x Monterrey', horario: '22h', palpites: { Galego: "2x1", ANDRÉ: "1x1", ROBERTO: "1x1", IAGO: "2x2", YASSER: "1x1", Walber: "2x1", Kleiton: "2x2", Oséas: "2x1" } },
-            { grupo: 'F', jogo: 'Sundows x Dortmund', horario: '13h', palpites: { Galego: "0x5", ANDRÉ: "0x2", ROBERTO: "0x2", IAGO: "1x2", YASSER: "0x2", Walber: "1x2", Kleiton: "0x2", Oséas: "0x3" } },
-            { grupo: 'F', jogo: 'Fluminense x Ulsan', horario: '19h', palpites: { Galego: "3x1", ANDRÉ: "2x0", ROBERTO: "3x1", IAGO: "2x0", YASSER: "2x0", Walber: "2x0", Kleiton: "2x0", Oséas: "2x0" } },
-            { grupo: 'G', jogo: 'Juventus x WAC', horario: '13h', palpites: { Galego: "3x1", ANDRÉ: "4x1", ROBERTO: "3x0", IAGO: "3x0", YASSER: "3x1", Walber: "3x0", Kleiton: "2x1", Oséas: "3x0" } },
-            { grupo: 'G', jogo: 'Man City x Al-Ain', horario: '22h', palpites: { Galego: "6x0", ANDRÉ: "5x0", ROBERTO: "4x0", IAGO: "5x0", YASSER: "5x0", Walber: "5x0", Kleiton: "4x0", Oséas: "5x0" } },
-            { grupo: 'H', jogo: 'Real Madrid x Pachuca', horario: '16h', palpites: { Galego: "3x0", ANDRÉ: "4x0", ROBERTO: "4x1", IAGO: "3x0", YASSER: "3x1", Walber: "2x0", Kleiton: "3x0", Oséas: "3x0" } },
-            { grupo: 'H', jogo: 'RB Salzburg x Al Hilal', horario: '19h', palpites: { Galego: "1x2", ANDRÉ: "2x1", ROBERTO: "1x2", IAGO: "1x2", YASSER: "1x2", Walber: "1x3", Kleiton: "1x1", Oséas: "1x2" } },
+        // --- DADOS INICIAIS ---
+        const initialParticipants = ["GALEGO", "ANDRÉ", "ROBERTO", "IAGO", "YASSER", "WALBER", "KLEITON", "OSÉAS", "JUDAS"];
+        
+        const palpitesPreenchidos = {
+            WALBER: ["2x0", "0x2", "0x4", "3x0", "0x3", "0x4", "0x2", "0x4", "2x1", "0x2", "1x2", "4x0", "1x2", "2x1", "1x4", "3x0"],
+            IAGO: ["3x0", "1x2", "0x5", "2x1", "0x4", "0x5", "1x4", "0x3", "2x0", "2x2", "1x1", "3x0", "1x3", "2x0", "1x3", "2x0"],
+            ROBERTO: ["2x0", "1x1", "0x4", "1x0", "1x3", "1x3", "0x2", "1x4", "2x1", "1x3", "0x1", "3x1", "1x1", "1x1", "1x2", "3x1"],
+        };
+        
+        const jogosDaRodada = [
+             { grupo: 'A', jogo: 'Porto x Al Ahly', horario: '22:00' },
+             { grupo: 'A', jogo: 'Inter Miami x Palmeiras', horario: '22:00' },
+             { grupo: 'B', jogo: 'Seattle Sounders x PSG', horario: '19:00' },
+             { grupo: 'B', jogo: 'Atlético de Madrid x Botafogo', horario: '19:00' },
+             { grupo: 'C', jogo: 'Benfica x Bayern', horario: '10:00' },
+             { grupo: 'C', jogo: 'Auckland City x Boca Juniors', horario: '10:00' },
+             { grupo: 'D', jogo: 'LAFC x Flamengo', horario: '22:00' },
+             { grupo: 'D', jogo: 'Espérance x Chelsea', horario: '22:00' },
+             { grupo: 'E', jogo: 'Inter x River Plate', horario: '22:00' },
+             { grupo: 'E', jogo: 'Urawa Reds x Monterrey', horario: '22:00' },
+             { grupo: 'F', jogo: 'Sundowns x Fluminense', horario: '10:00' },
+             { grupo: 'F', jogo: 'Dortmund x Ulsan', horario: '10:00' },
+             { grupo: 'G', jogo: 'Juventus x Man City', horario: '10:00' },
+             { grupo: 'G', jogo: 'WAC x Al-Ain', horario: '10:00' },
+             { grupo: 'H', jogo: 'Al-Hilal x Pachuca', horario: '22:00' },
+             { grupo: 'H', jogo: 'RB Salzburg x Real Madrid', horario: '22:00' },
         ];
+        
+        function getInitialData() {
+            const participants = [...initialParticipants];
+            const games = jogosDaRodada.map((jogo, index) => {
+                const palpites = participants.reduce((o, key) => ({ ...o, [key]: ""}), {});
+                if (palpitesPreenchidos.WALBER[index]) palpites.WALBER = palpitesPreenchidos.WALBER[index];
+                if (palpitesPreenchidos.IAGO[index]) palpites.IAGO = palpitesPreenchidos.IAGO[index];
+                if (palpitesPreenchidos.ROBERTO[index]) palpites.ROBERTO = palpitesPreenchidos.ROBERTO[index];
+                return { ...jogo, palpites };
+            });
+            const finalScores = Array(jogosDaRodada.length).fill("");
+            return { games, participants, finalScores };
+        }
+        
+        // --- LÓGICA DE PRAZO ---
+        function checkDeadline() {
+            const deadline = new Date();
+            deadline.setHours(16, 0, 0, 0); 
+            const now = new Date();
+            const isPastDeadline = now > deadline;
+            
+            const messageEl = document.getElementById('deadline-message');
+            if (isPastDeadline) {
+                messageEl.textContent = '⛔ Palpites Encerrados! ⛔';
+                messageEl.className = 'text-center mb-4 text-lg font-bold text-red-400';
+            } else {
+                messageEl.textContent = '✅ Palpites Abertos até as 16:00! ✅';
+                messageEl.className = 'text-center mb-4 text-lg font-bold text-green-400';
+            }
+            return isPastDeadline;
+        }
 
-        // --- LÓGICA DO PROGRAMA ---
+        // --- LÓGICA DO BOLÃO ---
         function normalizeScore(score) {
             if (typeof score !== 'string' || !score) return "";
-            return score.replace(/\s/g, '').replace(/a/i, 'x');
+            return score.replace(/\s/g, '').toLowerCase().replace(/a/i, 'x');
         }
 
         function getGameResult(score) {
@@ -137,7 +211,7 @@
             const placarFinalNorm = normalizeScore(placarFinal);
             if (!placarFinalNorm || placarFinalNorm.indexOf('x') === -1) return 0;
             const palpiteNorm = normalizeScore(palpite);
-            if (!palpiteNorm || palpite.toUpperCase().includes('P')) return 0;
+            if (!palpiteNorm) return 0;
             if (palpiteNorm === placarFinalNorm) return 3;
             const resultadoPalpite = getGameResult(palpiteNorm);
             const resultadoFinal = getGameResult(placarFinalNorm);
@@ -148,80 +222,74 @@
         // --- FUNÇÕES FIREBASE ---
         async function initializeFirebase() {
             try {
-                // SUAS CREDENCIAIS FORAM INSERIDAS AQUI
                 const firebaseConfig = {
                   apiKey: "AIzaSyD2EKVkjJaCEFXeZYN6p0XTC6BmpDUrdBw",
                   authDomain: "bolaocrazys.firebaseapp.com",
                   projectId: "bolaocrazys",
-                  storageBucket: "bolaocrazys.firebasestorage.app",
+                  storageBucket: "bolaocrazys.appspot.com",
                   messagingSenderId: "912073059842",
                   appId: "1:912073059842:web:20846e2ba7a1e907f8411b",
                   measurementId: "G-FST2TL48V4"
                 };
 
-                if (!firebaseConfig.apiKey) throw new Error("Configuração do Firebase não encontrada.");
-
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 const auth = getAuth(app);
-                
-                // Como você configurou o login anônimo, o programa irá usá-lo.
                 await signInAnonymously(auth);
                 
-                // O caminho do documento agora é simples, dentro do seu projeto.
-                const docPath = `bolao/liveScores`;
-                scoresDocRef = doc(db, docPath);
+                const docPath = `bolao/rodada3-oficial`;
+                bolaoDocRef = doc(db, docPath);
 
                 setupRealtimeListener();
 
             } catch (error) {
                 console.error("Erro ao inicializar Firebase:", error);
-                const loadingEl = document.getElementById('loading');
-                loadingEl.innerHTML = `<p style="color:red;">Erro de conexão: ${error.message}</p>`;
+                document.getElementById('loading').innerHTML = `<p style="color:red;">Erro de conexão: ${error.message}</p>`;
             }
         }
         
         function setupRealtimeListener() {
-            onSnapshot(scoresDocRef, (docSnapshot) => {
-                const loadingEl = document.getElementById('loading');
-                const appEl = document.getElementById('app-content');
-                loadingEl.style.display = 'none';
-                appEl.style.display = 'block';
+            onSnapshot(bolaoDocRef, (docSnapshot) => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('app-content').style.display = 'block';
 
-                let scores = [];
-                if (docSnapshot.exists() && docSnapshot.data().scores) {
-                    scores = docSnapshot.data().scores;
+                if (docSnapshot.exists()) {
+                    localData = docSnapshot.data();
+                    if (!localData.participants) { // Adiciona compatibilidade com dados antigos
+                         localData.participants = [...initialParticipants];
+                    }
                 } else {
-                    scores = Array(games.length).fill("");
-                    saveScoresToFirestore(scores);
+                    localData = getInitialData();
+                    saveDataToFirestore(); 
                 }
                 
-                renderTable(scores);
-                updateAllScoresUI(scores);
+                renderTable(localData);
+                updateAllScoresUI(localData);
             }, (error) => {
                 console.error("Erro no listener do Firestore:", error);
-                const loadingEl = document.getElementById('loading');
-                loadingEl.innerHTML = `<p style="color:red;">Erro ao escutar dados: ${error.message}</p>`;
+                document.getElementById('loading').innerHTML = `<p style="color:red;">Erro ao escutar dados: ${error.message}</p>`;
             });
         }
 
-        async function saveScoresToFirestore(scores) {
-            if (!scoresDocRef) return;
+        async function saveDataToFirestore() {
+            if (!bolaoDocRef) return;
             try {
-                await setDoc(scoresDocRef, { scores: scores });
+                await setDoc(bolaoDocRef, localData);
             } catch (error) {
                 console.error("Erro ao salvar no Firestore:", error);
             }
         }
 
         // --- ATUALIZAÇÃO DA INTERFACE ---
-        function updateAllScoresUI(currentScores) {
+        function updateAllScoresUI({ games, participants, finalScores }) {
             const totals = participants.reduce((acc, name) => ({ ...acc, [name]: 0 }), {});
             games.forEach((game, index) => {
-                const finalScore = currentScores[index] || "";
+                const finalScore = finalScores[index] || "";
                 participants.forEach(participant => {
+                    if (game.palpites[participant] === undefined) return;
                     const points = calculatePoints(game.palpites[participant], finalScore);
-                    const pointsCell = document.getElementById(`points-${participant.replace(/\s|É/g, '')}-${index}`);
+                    const sanitizedName = participant.replace(/\s|É/g, '');
+                    const pointsCell = document.getElementById(`points-${sanitizedName}-${index}`);
                     if(pointsCell) {
                         pointsCell.textContent = points;
                         pointsCell.classList.remove('text-green-400', 'text-yellow-400', 'text-red-400');
@@ -232,7 +300,8 @@
             });
 
             participants.forEach(participant => {
-                const totalCell = document.getElementById(`total-points-${participant.replace(/\s|É/g, '')}`);
+                const sanitizedName = participant.replace(/\s|É/g, '');
+                const totalCell = document.getElementById(`total-points-${sanitizedName}`);
                 if(totalCell) totalCell.textContent = totals[participant];
             });
             updateRanking(totals);
@@ -241,61 +310,58 @@
         function updateRanking(totals) {
             const rankingList = document.getElementById('ranking-list');
             if (!rankingList) return;
-            rankingList.innerHTML = '';
             const sortedParticipants = Object.entries(totals).map(([name, score]) => ({ name, score })).sort((a, b) => b.score - a.score);
             const trophies = ['🥇', '🥈', '🥉'];
-            sortedParticipants.forEach((p, index) => {
-                rankingList.innerHTML += `
-                    <div class="rank-item">
-                        <span class="rank-pos">${index < 3 ? `<span class="trophy">${trophies[index]}</span>` : ''}${index + 1}º</span>
-                        <span class="rank-name">${p.name}</span>
-                        <span class="rank-score">${p.score}</span>
-                    </div>`;
-            });
+            rankingList.innerHTML = sortedParticipants.map((p, index) => `
+                <div class="rank-item">
+                    <span class="rank-pos">${index < 3 ? `<span class="trophy">${trophies[index]}</span>` : ''}${index + 1}º</span>
+                    <span class="rank-name">${p.name.toUpperCase()}</span>
+                    <span class="rank-score">${p.score}</span>
+                </div>`
+            ).join('');
         }
 
-        function renderTable(loadedScores) {
+        function renderTable({ games, participants, finalScores }) {
+            const isPastDeadline = checkDeadline();
             const thead = document.querySelector('thead tr');
             const tbody = document.getElementById('bolao-table-body');
             const tfoot = document.createElement('tr');
+            
             thead.innerHTML = `<th scope="col" class="px-4 py-3">Grupo</th><th scope="col" class="px-4 py-3">Jogo</th><th scope="col" class="px-4 py-3">Horário</th><th scope="col" class="px-4 py-3 text-center">Placar Final</th>`;
             tbody.innerHTML = '';
             tfoot.className = 'bg-gray-700 font-bold text-white text-lg';
             
             participants.forEach(name => {
-                thead.innerHTML += `<th class="px-4 py-3 text-center">${name}</th><th class="px-4 py-3 text-center bg-gray-600">Pts</th>`;
+                thead.innerHTML += `<th class="px-4 py-3 text-center">${name}<span class="remove-participant-btn" data-name="${name}">&times;</span></th><th class="px-4 py-3 text-center bg-gray-600">Pts</th>`;
             });
 
             games.forEach((game, index) => {
-                const scoreValue = loadedScores[index] || '';
                 let rowHTML = `
                     <tr class="border-b border-gray-700 hover:bg-gray-600/50">
                         <td class="px-4 py-3">${game.grupo}</td>
                         <td class="px-4 py-3 font-medium text-white">${game.jogo}</td>
                         <td class="px-4 py-3">${game.horario}</td>
                         <td class="px-4 py-3 text-center">
-                            <input type="text" id="score-input-${index}" class="placar-final-input" value="${scoreValue}">
+                            <input type="text" id="score-input-${index}" class="score-input" value="${finalScores[index] || ''}">
                         </td>`;
                 participants.forEach(participant => {
-                    const palpite = game.palpites[participant] || '-';
+                    const palpite = game.palpites[participant] || '';
                     const sanitizedName = participant.replace(/\s|É/g, '');
                     rowHTML += `
-                        <td class="px-4 py-3 text-center font-mono">${palpite}</td>
+                        <td class="px-4 py-3 text-center font-mono">
+                            <input type="text" 
+                                   id="palpite-${sanitizedName}-${index}" 
+                                   class="score-input" 
+                                   value="${palpite}" 
+                                   ${isPastDeadline ? 'disabled' : ''}>
+                        </td>
                         <td class="px-4 py-3 pontos-cell bg-gray-900/50" id="points-${sanitizedName}-${index}">0</td>`;
                 });
                 rowHTML += `</tr>`;
                 tbody.innerHTML += rowHTML;
             });
             
-            games.forEach((_, index) => {
-                 document.getElementById(`score-input-${index}`).addEventListener('input', (e) => {
-                    const currentScores = [];
-                    games.forEach((g, i) => {
-                       currentScores[i] = document.getElementById(`score-input-${i}`).value;
-                    });
-                    saveScoresToFirestore(currentScores);
-                 });
-            });
+            addEventListenersToInputs();
 
             tfoot.innerHTML = `<td colspan="4" class="px-4 py-4 text-right uppercase tracking-wider">Pontuação Total</td>`;
             participants.forEach(participant => {
@@ -309,19 +375,75 @@
                 tfootElement.appendChild(tfoot);
             }
         }
+        
+        // --- GERENCIAMENTO DE PARTICIPANTES ---
+        function addParticipant(name) {
+            const upperCaseName = name.toUpperCase();
+            if (!upperCaseName || localData.participants.includes(upperCaseName)) {
+                alert("Nome inválido ou já existente.");
+                return;
+            }
+            localData.participants.push(upperCaseName);
+            localData.games.forEach(game => {
+                game.palpites[upperCaseName] = "";
+            });
+            saveDataToFirestore();
+        }
+        
+        function removeParticipant(name) {
+            const index = localData.participants.indexOf(name);
+            if (index > -1) {
+                localData.participants.splice(index, 1);
+                localData.games.forEach(game => {
+                    delete game.palpites[name];
+                });
+                saveDataToFirestore();
+            }
+        }
+
+        function addEventListenersToInputs() {
+            // Salvar palpites e placares
+            document.querySelectorAll('.score-input').forEach(input => {
+                input.addEventListener('change', () => {
+                    localData.games.forEach((game, gameIndex) => {
+                         localData.participants.forEach(participant => {
+                            const sanitizedName = participant.replace(/\s|É/g, '');
+                            const inputEl = document.getElementById(`palpite-${sanitizedName}-${gameIndex}`);
+                            if(inputEl) localData.games[gameIndex].palpites[participant] = inputEl.value;
+                        });
+                    });
+                    localData.finalScores.forEach((score, scoreIndex) => {
+                        const inputEl = document.getElementById(`score-input-${scoreIndex}`);
+                        if(inputEl) localData.finalScores[scoreIndex] = inputEl.value;
+                    });
+                    saveDataToFirestore();
+                });
+            });
+
+            // Remover participante
+            document.querySelectorAll('.remove-participant-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const nameToRemove = e.target.dataset.name;
+                    if (confirm(`Tem certeza que deseja remover ${nameToRemove}?`)) {
+                        removeParticipant(nameToRemove);
+                    }
+                });
+            });
+        }
 
         // --- INICIALIZAÇÃO ---
         document.addEventListener('DOMContentLoaded', () => {
             initializeFirebase();
+            
+            // Adicionar participante
+            const addForm = document.getElementById('add-participant-form');
+            addForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const nameInput = document.getElementById('new-participant-name');
+                addParticipant(nameInput.value.trim());
+                nameInput.value = '';
+            });
         });
     </script>
 </body>
 </html>
-```
-
-Agora, o seu próximo passo é simples:
-1.  **Copie** este código atualizado.
-2.  **Salve-o** como `index.html`, substituindo a versão antiga.
-3.  **Hospede** este novo arquivo no Netlify (ou no seu serviço de preferência), substituindo o site antigo.
-
-Assim que o novo site estiver no ar, ele vai se conectar ao seu banco de dados Firebase e funcionará para todos os seus amig
