@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bolão Mundial Crazys - Apuração em Tempo Real</title>
+    <title>Bolão Crazys - Oitavas de Final</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -61,6 +61,9 @@
             background-color: #c53030;
             color: white;
         }
+        .modal {
+             transition: opacity 0.25s ease;
+        }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,9 +76,31 @@
         <p>Conectando ao bolão...</p>
     </div>
 
+    <!-- Modal de Alerta -->
+    <div id="alert-modal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 rounded-lg p-6 shadow-xl max-w-sm mx-auto">
+            <p class="text-gray-200 mb-6" id="alert-message">Mensagem de alerta.</p>
+            <div class="flex justify-end">
+                <button id="alert-ok-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-semibold">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação -->
+    <div id="confirmation-modal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 rounded-lg p-6 shadow-xl max-w-sm mx-auto">
+            <h3 class="text-lg font-bold text-white mb-4">Confirmar Ação</h3>
+            <p class="text-gray-300 mb-6" id="modal-message">Você tem certeza?</p>
+            <div class="flex justify-end gap-4">
+                <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-semibold">Cancelar</button>
+                <button id="modal-confirm-btn" class="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-semibold">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
     <div id="app-content" class="container mx-auto p-4 md:p-8" style="display: none;">
         <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-white">🔥 Bolão Mundial Crazys - 3ª Rodada 🔥</h1>
+            <h1 class="text-4xl font-bold text-white">🔥 Bolão Crazys - Oitavas de Final 🔥</h1>
             <p class="text-xl text-gray-400 mt-2">Apuração em Tempo Real na Nuvem</p>
         </header>
         
@@ -86,8 +111,13 @@
             </div>
         </div>
 
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 text-center">
+            <h2 class="text-xl font-semibold mb-3 text-yellow-300">INFORMAÇÕES IMPORTANTES</h2>
+            <p class="text-gray-300"><strong>Chave Pix para pagamento (R$ 20,00):</strong> 05723258354</p>
+            <p class="text-gray-300 mt-2"><strong>Atenção:</strong> O resultado válido para os palpites inclui o placar da prorrogação, se houver!</p>
+        </div>
+
         <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
-             <div id="deadline-message" class="text-center mb-4 text-lg font-bold"></div>
             <h2 class="text-2xl font-semibold mb-3">Regras de Pontuação</h2>
             <ul class="list-disc list-inside text-gray-300">
                 <li><span class="font-bold text-green-400">3 pontos:</span> Acertar o placar exato do jogo.</li>
@@ -111,9 +141,9 @@
             <table class="min-w-full text-sm text-left">
                 <thead class="bg-gray-700 text-xs text-gray-300 uppercase tracking-wider">
                     <tr>
-                        <th scope="col" class="px-4 py-3">Grupo</th>
+                        <th scope="col" class="px-4 py-3">Chave</th>
                         <th scope="col" class="px-4 py-3">Jogo</th>
-                        <th scope="col" class="px-4 py-3">Horário</th>
+                        <th scope="col" class="px-4 py-3">Data/Hora</th>
                         <th scope="col" class="px-4 py-3 text-center">Placar Final</th>
                     </tr>
                 </thead>
@@ -133,66 +163,48 @@
         let db;
         let bolaoDocRef;
         let localData = { games: [], finalScores: [], participants: [] }; 
+        let confirmationResolve = null;
 
-        // --- DADOS INICIAIS ---
+        // --- DADOS INICIAIS DA RODADA ---
         const initialParticipants = ["GALEGO", "ANDRÉ", "ROBERTO", "IAGO", "YASSER", "WALBER", "KLEITON", "OSÉAS", "JUDAS"];
         
-        const palpitesPreenchidos = {
-            WALBER: ["2x0", "0x2", "0x4", "3x0", "0x3", "0x4", "0x2", "0x4", "2x1", "0x2", "1x2", "4x0", "1x2", "2x1", "1x4", "3x0"],
-            IAGO: ["3x0", "1x2", "0x5", "2x1", "0x4", "0x5", "1x4", "0x3", "2x0", "2x2", "1x1", "3x0", "1x3", "2x0", "1x3", "2x0"],
-            ROBERTO: ["2x0", "1x1", "0x4", "1x0", "1x3", "1x3", "0x2", "1x4", "2x1", "1x3", "0x1", "3x1", "1x1", "1x1", "1x2", "3x1"],
-        };
-        
         const jogosDaRodada = [
-             { grupo: 'A', jogo: 'Porto x Al Ahly', horario: '22:00' },
-             { grupo: 'A', jogo: 'Inter Miami x Palmeiras', horario: '22:00' },
-             { grupo: 'B', jogo: 'Seattle Sounders x PSG', horario: '19:00' },
-             { grupo: 'B', jogo: 'Atlético de Madrid x Botafogo', horario: '19:00' },
-             { grupo: 'C', jogo: 'Benfica x Bayern', horario: '10:00' },
-             { grupo: 'C', jogo: 'Auckland City x Boca Juniors', horario: '10:00' },
-             { grupo: 'D', jogo: 'LAFC x Flamengo', horario: '22:00' },
-             { grupo: 'D', jogo: 'Espérance x Chelsea', horario: '22:00' },
-             { grupo: 'E', jogo: 'Inter x River Plate', horario: '22:00' },
-             { grupo: 'E', jogo: 'Urawa Reds x Monterrey', horario: '22:00' },
-             { grupo: 'F', jogo: 'Sundowns x Fluminense', horario: '10:00' },
-             { grupo: 'F', jogo: 'Dortmund x Ulsan', horario: '10:00' },
-             { grupo: 'G', jogo: 'Juventus x Man City', horario: '10:00' },
-             { grupo: 'G', jogo: 'WAC x Al-Ain', horario: '10:00' },
-             { grupo: 'H', jogo: 'Al-Hilal x Pachuca', horario: '22:00' },
-             { grupo: 'H', jogo: 'RB Salzburg x Real Madrid', horario: '22:00' },
+             { grupo: 'Oitavas', jogo: 'Palmeiras x Botafogo', horario: 'N/D' },
+             { grupo: 'Oitavas', jogo: 'Benfica x Chelsea', horario: 'N/D' },
+             { grupo: 'Oitavas', jogo: 'Paris Saint-Germain x Inter Miami', horario: 'N/D' },
+             { grupo: 'Oitavas', jogo: 'Flamengo x Bayern de Munique', horario: 'N/D' },
+             { grupo: 'Oitavas', jogo: 'Inter de Milão x Fluminense', horario: 'N/D' },
+             { grupo: 'Oitavas', jogo: 'Manchester City x Al Hilal', horario: 'N/D' },
+             { grupo: 'Oitavas', jogo: 'Real Madrid x Juventus', horario: 'N/D' },
+             { grupo: 'Oitavas', jogo: 'Borussia Dortmund x Monterrey', horario: 'N/D' }
         ];
+
+        const palpitesPreenchidos = {
+            IAGO:    ["2x1", "1x2", "3x1", "3x2", "2x0", "4x1", "2x1", "3x1"],
+            YASSER:  ["1x1", "1x3", "2x1", "2x1", "3x0", "3x1", "2x1", "1x1"],
+            ROBERTO: ["0x0", "1x1", "3x0", "1x2", "2x0", "3x0", "1x0", "1x1"],
+            JUDAS:   ["1x2", "2x2", "4x2", "0x3", "2x1", "3x2", "2x0", "2x0"],
+            GALEGO:  ["1x2", "1x2", "3x1", "1x3", "2x1", "4x1", "2x1", "1x0"],
+            KLEITON: ["0x1", "2x1", "4x1", "1x3", "1x2", "3x1", "2x1", "0x3"],
+            OSÉAS:   ["3x3", "2x2", "4x0", "3x0", "1x0", "3x0", "2x0", "0x2"]
+        };
         
         function getInitialData() {
             const participants = [...initialParticipants];
             const games = jogosDaRodada.map((jogo, index) => {
-                const palpites = participants.reduce((o, key) => ({ ...o, [key]: ""}), {});
-                if (palpitesPreenchidos.WALBER[index]) palpites.WALBER = palpitesPreenchidos.WALBER[index];
-                if (palpitesPreenchidos.IAGO[index]) palpites.IAGO = palpitesPreenchidos.IAGO[index];
-                if (palpitesPreenchidos.ROBERTO[index]) palpites.ROBERTO = palpitesPreenchidos.ROBERTO[index];
+                const palpites = participants.reduce((o, key) => ({ ...o, [key]: "" }), {});
+                // Preenche dinamicamente os palpites já existentes
+                for (const participantName in palpitesPreenchidos) {
+                    if (palpites.hasOwnProperty(participantName) && palpitesPreenchidos[participantName][index]) {
+                         palpites[participantName] = palpitesPreenchidos[participantName][index];
+                    }
+                }
                 return { ...jogo, palpites };
             });
             const finalScores = Array(jogosDaRodada.length).fill("");
             return { games, participants, finalScores };
         }
         
-        // --- LÓGICA DE PRAZO ---
-        function checkDeadline() {
-            const deadline = new Date();
-            deadline.setHours(16, 0, 0, 0); 
-            const now = new Date();
-            const isPastDeadline = now > deadline;
-            
-            const messageEl = document.getElementById('deadline-message');
-            if (isPastDeadline) {
-                messageEl.textContent = '⛔ Palpites Encerrados! ⛔';
-                messageEl.className = 'text-center mb-4 text-lg font-bold text-red-400';
-            } else {
-                messageEl.textContent = '✅ Palpites Abertos até as 16:00! ✅';
-                messageEl.className = 'text-center mb-4 text-lg font-bold text-green-400';
-            }
-            return isPastDeadline;
-        }
-
         // --- LÓGICA DO BOLÃO ---
         function normalizeScore(score) {
             if (typeof score !== 'string' || !score) return "";
@@ -222,6 +234,7 @@
         // --- FUNÇÕES FIREBASE ---
         async function initializeFirebase() {
             try {
+                // ATENÇÃO: Substitua com sua própria configuração do Firebase
                 const firebaseConfig = {
                   apiKey: "AIzaSyD2EKVkjJaCEFXeZYN6p0XTC6BmpDUrdBw",
                   authDomain: "bolaocrazys.firebaseapp.com",
@@ -237,7 +250,8 @@
                 const auth = getAuth(app);
                 await signInAnonymously(auth);
                 
-                const docPath = `bolao/rodada3-oficial`;
+                // Caminho do documento alterado para as oitavas de final
+                const docPath = `bolao/oitavas-final-oficial`;
                 bolaoDocRef = doc(db, docPath);
 
                 setupRealtimeListener();
@@ -255,8 +269,10 @@
 
                 if (docSnapshot.exists()) {
                     localData = docSnapshot.data();
-                    if (!localData.participants) { // Adiciona compatibilidade com dados antigos
-                         localData.participants = [...initialParticipants];
+                    // Garante que a estrutura de dados seja compatível
+                    if (!localData.participants || !localData.games || !localData.finalScores) {
+                         localData = getInitialData();
+                         saveDataToFirestore();
                     }
                 } else {
                     localData = getInitialData();
@@ -274,9 +290,12 @@
         async function saveDataToFirestore() {
             if (!bolaoDocRef) return;
             try {
-                await setDoc(bolaoDocRef, localData);
+                // Usando um clone para evitar problemas de serialização do Firebase com Proxies do Vue/React
+                const dataToSave = JSON.parse(JSON.stringify(localData));
+                await setDoc(bolaoDocRef, dataToSave);
             } catch (error) {
                 console.error("Erro ao salvar no Firestore:", error);
+                showAlert(`Erro ao salvar dados: ${error.message}`);
             }
         }
 
@@ -322,12 +341,11 @@
         }
 
         function renderTable({ games, participants, finalScores }) {
-            const isPastDeadline = checkDeadline();
             const thead = document.querySelector('thead tr');
             const tbody = document.getElementById('bolao-table-body');
             const tfoot = document.createElement('tr');
             
-            thead.innerHTML = `<th scope="col" class="px-4 py-3">Grupo</th><th scope="col" class="px-4 py-3">Jogo</th><th scope="col" class="px-4 py-3">Horário</th><th scope="col" class="px-4 py-3 text-center">Placar Final</th>`;
+            thead.innerHTML = `<th scope="col" class="px-4 py-3">Chave</th><th scope="col" class="px-4 py-3">Jogo</th><th scope="col" class="px-4 py-3">Data/Hora</th><th scope="col" class="px-4 py-3 text-center">Placar Final</th>`;
             tbody.innerHTML = '';
             tfoot.className = 'bg-gray-700 font-bold text-white text-lg';
             
@@ -352,8 +370,7 @@
                             <input type="text" 
                                    id="palpite-${sanitizedName}-${index}" 
                                    class="score-input" 
-                                   value="${palpite}" 
-                                   ${isPastDeadline ? 'disabled' : ''}>
+                                   value="${palpite}">
                         </td>
                         <td class="px-4 py-3 pontos-cell bg-gray-900/50" id="points-${sanitizedName}-${index}">0</td>`;
                 });
@@ -380,7 +397,7 @@
         function addParticipant(name) {
             const upperCaseName = name.toUpperCase();
             if (!upperCaseName || localData.participants.includes(upperCaseName)) {
-                alert("Nome inválido ou já existente.");
+                showAlert("Nome de participante inválido ou já existente.");
                 return;
             }
             localData.participants.push(upperCaseName);
@@ -400,11 +417,30 @@
                 saveDataToFirestore();
             }
         }
+        
+        // --- MODAIS E EVENTOS ---
+        function showAlert(message) {
+            document.getElementById('alert-message').textContent = message;
+            document.getElementById('alert-modal').classList.remove('hidden');
+        }
+
+        function showConfirmationModal(message) {
+            return new Promise((resolve) => {
+                confirmationResolve = resolve;
+                document.getElementById('modal-message').textContent = message;
+                document.getElementById('confirmation-modal').classList.remove('hidden');
+            });
+        }
+        
+        function hideConfirmationModal() {
+            document.getElementById('confirmation-modal').classList.add('hidden');
+        }
 
         function addEventListenersToInputs() {
-            // Salvar palpites e placares
             document.querySelectorAll('.score-input').forEach(input => {
                 input.addEventListener('change', () => {
+                    // Mapeia todos os inputs para o localData de uma vez
+                    localData.finalScores = Array.from(document.querySelectorAll('[id^="score-input-"]')).map(el => el.value);
                     localData.games.forEach((game, gameIndex) => {
                          localData.participants.forEach(participant => {
                             const sanitizedName = participant.replace(/\s|É/g, '');
@@ -412,19 +448,15 @@
                             if(inputEl) localData.games[gameIndex].palpites[participant] = inputEl.value;
                         });
                     });
-                    localData.finalScores.forEach((score, scoreIndex) => {
-                        const inputEl = document.getElementById(`score-input-${scoreIndex}`);
-                        if(inputEl) localData.finalScores[scoreIndex] = inputEl.value;
-                    });
                     saveDataToFirestore();
                 });
             });
 
-            // Remover participante
             document.querySelectorAll('.remove-participant-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const nameToRemove = e.target.dataset.name;
-                    if (confirm(`Tem certeza que deseja remover ${nameToRemove}?`)) {
+                btn.addEventListener('click', async (e) => {
+                    const nameToRemove = e.currentTarget.dataset.name;
+                    const confirmed = await showConfirmationModal(`Tem certeza que deseja remover ${nameToRemove}? Todos os palpites serão perdidos permanentemente.`);
+                    if (confirmed) {
                         removeParticipant(nameToRemove);
                     }
                 });
@@ -435,7 +467,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             initializeFirebase();
             
-            // Adicionar participante
             const addForm = document.getElementById('add-participant-form');
             addForm.addEventListener('submit', (e) => {
                 e.preventDefault();
@@ -443,7 +474,21 @@
                 addParticipant(nameInput.value.trim());
                 nameInput.value = '';
             });
+
+            // Eventos dos modais
+            document.getElementById('alert-ok-btn').addEventListener('click', () => {
+                document.getElementById('alert-modal').classList.add('hidden');
+            });
+            document.getElementById('modal-cancel-btn').addEventListener('click', () => {
+                hideConfirmationModal();
+                if(confirmationResolve) confirmationResolve(false);
+            });
+            document.getElementById('modal-confirm-btn').addEventListener('click', () => {
+                hideConfirmationModal();
+                if(confirmationResolve) confirmationResolve(true);
+            });
         });
     </script>
 </body>
 </html>
+
