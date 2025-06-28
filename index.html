@@ -112,7 +112,16 @@
         let localData = { games: [], finalScores: [], participants: [] }; 
 
         // --- DADOS INICIAIS DA RODADA ---
-        const initialParticipants = ["GALEGO", "ROBERTO", "IAGO", "YASSER", "KLEITON", "OSÉAS", "JUDAS"];
+        const participantsData = [
+            { name: 'GALEGO', displayName: '👂 GALEGO' },
+            { name: 'IAGO', displayName: '🎩 IAGO' },
+            { name: 'YASSER', displayName: '👮‍♂️ YASSER' },
+            { name: 'ROBERTO', displayName: '👨‍⚕️ ROBERTO' },
+            { name: 'JUDAS', displayName: '🔧 JUDAS' },
+            { name: 'KLEITON', displayName: '💼 KLEITON' },
+            { name: 'OSÉAS', displayName: '💆‍♂️ OSÉAS' },
+            { name: 'WALBER', displayName: '🧮 WALBER' }
+        ];
         
         const jogosDaRodada = [
              { grupo: 'Oitavas', jogo: 'Palmeiras x Botafogo', horario: 'N/D' },
@@ -132,14 +141,14 @@
             JUDAS:   ["1x2", "2x2", "4x2", "0x3", "2x1", "3x2", "2x0", "2x0"],
             GALEGO:  ["1x2", "1x2", "3x1", "1x3", "2x1", "4x1", "2x1", "1x0"],
             KLEITON: ["0x1", "2x1", "4x1", "1x3", "1x2", "3x1", "2x1", "0x3"],
-            OSÉAS:   ["3x3", "2x2", "4x0", "3x0", "1x0", "3x0", "2x0", "0x2"]
+            OSÉAS:   ["2x1", "1x2", "4x0", "1x2", "1x0", "3x0", "2x0", "0x2"],
+            WALBER:  ["1x0", "0x1", "5x0", "0x3", "2x0", "4x1", "3x1", "2x0"]
         };
         
         function getInitialData() {
-            const participants = [...initialParticipants];
+            const participants = [...participantsData];
             const games = jogosDaRodada.map((jogo, index) => {
-                const palpites = participants.reduce((o, key) => ({ ...o, [key]: "" }), {});
-                // Preenche dinamicamente os palpites já existentes
+                const palpites = participants.reduce((obj, p) => ({ ...obj, [p.name]: "" }), {});
                 for (const participantName in palpitesPreenchidos) {
                     if (palpites.hasOwnProperty(participantName) && palpitesPreenchidos[participantName][index]) {
                          palpites[participantName] = palpitesPreenchidos[participantName][index];
@@ -180,7 +189,7 @@
         // --- FUNÇÕES FIREBASE ---
         async function initializeFirebase() {
             try {
-                // ATENÇÃO: Substitua com sua própria configuração do Firebase
+                // ATENÇÃO: Configuração do Firebase
                 const firebaseConfig = {
                   apiKey: "AIzaSyD2EKVkjJaCEFXeZYN6p0XTC6BmpDUrdBw",
                   authDomain: "bolaocrazys.firebaseapp.com",
@@ -196,7 +205,6 @@
                 const auth = getAuth(app);
                 await signInAnonymously(auth);
                 
-                // Caminho do documento alterado para as oitavas de final
                 const docPath = `bolao/oitavas-final-oficial`;
                 bolaoDocRef = doc(db, docPath);
 
@@ -215,12 +223,16 @@
 
                 if (docSnapshot.exists()) {
                     localData = docSnapshot.data();
-                    // Garante que a estrutura de dados seja compatível e força a atualização se a lista de participantes antiga for detectada
-                    if (!localData.participants || !localData.games || !localData.finalScores || localData.participants.includes("WALBER") || localData.participants.includes("ANDRÉ")) {
+                    const isOldFormat = localData.participants && localData.participants.length > 0 && typeof localData.participants[0] === 'string';
+                    const walberIsMissing = localData.participants && !localData.participants.some(p => p.name === 'WALBER');
+
+                    if (!localData.participants || !localData.games || !localData.finalScores || isOldFormat || walberIsMissing) {
+                         console.log("Formato de dados antigo detectado. Redefinindo para a nova estrutura.");
                          localData = getInitialData();
                          saveDataToFirestore();
                     }
                 } else {
+                    console.log("Nenhum dado encontrado. Criando novo bolão.");
                     localData = getInitialData();
                     saveDataToFirestore(); 
                 }
@@ -245,40 +257,48 @@
 
         // --- ATUALIZAÇÃO DA INTERFACE ---
         function updateAllScoresUI({ games, participants, finalScores }) {
-            const totals = participants.reduce((acc, name) => ({ ...acc, [name]: 0 }), {});
+            const totals = participants.reduce((acc, p) => ({ ...acc, [p.name]: 0 }), {});
             games.forEach((game, index) => {
                 const finalScore = finalScores[index] || "";
                 participants.forEach(participant => {
-                    if (game.palpites[participant] === undefined) return;
-                    const points = calculatePoints(game.palpites[participant], finalScore);
-                    const sanitizedName = participant.replace(/\s|É/g, '');
-                    const pointsCell = document.getElementById(`points-${sanitizedName}-${index}`);
+                    const participantName = participant.name;
+                    if (game.palpites[participantName] === undefined) return;
+                    
+                    const points = calculatePoints(game.palpites[participantName], finalScore);
+                    const pointsCell = document.getElementById(`points-${participantName}-${index}`);
+                    
                     if(pointsCell) {
                         pointsCell.textContent = points;
                         pointsCell.classList.remove('text-green-400', 'text-yellow-400', 'text-red-400');
                         pointsCell.classList.add(points === 3 ? 'text-green-400' : points === 1 ? 'text-yellow-400' : 'text-red-400');
                     }
-                    totals[participant] += points;
+                    totals[participantName] += points;
                 });
             });
 
             participants.forEach(participant => {
-                const sanitizedName = participant.replace(/\s|É/g, '');
-                const totalCell = document.getElementById(`total-points-${sanitizedName}`);
-                if(totalCell) totalCell.textContent = totals[participant];
+                const totalCell = document.getElementById(`total-points-${participant.name}`);
+                if(totalCell) totalCell.textContent = totals[participant.name];
             });
-            updateRanking(totals);
+            updateRanking(totals, participants);
         }
 
-        function updateRanking(totals) {
+        function updateRanking(totals, participants) {
             const rankingList = document.getElementById('ranking-list');
             if (!rankingList) return;
-            const sortedParticipants = Object.entries(totals).map(([name, score]) => ({ name, score })).sort((a, b) => b.score - a.score);
+
+            const sortedParticipants = Object.entries(totals)
+                .map(([name, score]) => {
+                    const pData = participants.find(p => p.name === name);
+                    return { name, score, displayName: pData ? pData.displayName : name };
+                })
+                .sort((a, b) => b.score - a.score);
+
             const trophies = ['🥇', '🥈', '🥉'];
             rankingList.innerHTML = sortedParticipants.map((p, index) => `
                 <div class="rank-item">
                     <span class="rank-pos">${index < 3 ? `<span class="trophy">${trophies[index]}</span>` : ''}${index + 1}º</span>
-                    <span class="rank-name">${p.name.toUpperCase()}</span>
+                    <span class="rank-name">${p.displayName}</span>
                     <span class="rank-score">${p.score}</span>
                 </div>`
             ).join('');
@@ -293,8 +313,8 @@
             tbody.innerHTML = '';
             tfoot.className = 'bg-gray-700 font-bold text-white text-lg';
             
-            participants.forEach(name => {
-                thead.innerHTML += `<th class="px-4 py-3 text-center">${name}</th><th class="px-4 py-3 text-center bg-gray-600">Pts</th>`;
+            participants.forEach(p => {
+                thead.innerHTML += `<th class="px-4 py-3 text-center whitespace-nowrap">${p.displayName}</th><th class="px-4 py-3 text-center bg-gray-600">Pts</th>`;
             });
 
             games.forEach((game, index) => {
@@ -307,16 +327,15 @@
                             <input type="text" id="score-input-${index}" class="score-input" value="${finalScores[index] || ''}">
                         </td>`;
                 participants.forEach(participant => {
-                    const palpite = game.palpites[participant] || '';
-                    const sanitizedName = participant.replace(/\s|É/g, '');
+                    const palpite = game.palpites[participant.name] || '';
                     rowHTML += `
                         <td class="px-4 py-3 text-center font-mono">
                             <input type="text" 
-                                   id="palpite-${sanitizedName}-${index}" 
+                                   id="palpite-${participant.name}-${index}" 
                                    class="score-input" 
                                    value="${palpite}">
                         </td>
-                        <td class="px-4 py-3 pontos-cell bg-gray-900/50" id="points-${sanitizedName}-${index}">0</td>`;
+                        <td class="px-4 py-3 pontos-cell bg-gray-900/50" id="points-${participant.name}-${index}">0</td>`;
                 });
                 rowHTML += `</tr>`;
                 tbody.innerHTML += rowHTML;
@@ -326,8 +345,7 @@
 
             tfoot.innerHTML = `<td colspan="4" class="px-4 py-4 text-right uppercase tracking-wider">Pontuação Total</td>`;
             participants.forEach(participant => {
-                const sanitizedName = participant.replace(/\s|É/g, '');
-                tfoot.innerHTML += `<td class="px-4 py-4"></td><td class="px-4 py-4 text-center total-points text-2xl" id="total-points-${sanitizedName}">0</td>`;
+                tfoot.innerHTML += `<td class="px-4 py-4"></td><td class="px-4 py-4 text-center total-points text-2xl" id="total-points-${participant.name}">0</td>`;
             });
             
             const tfootElement = document.querySelector('table tfoot');
@@ -340,13 +358,11 @@
         function addEventListenersToInputs() {
             document.querySelectorAll('.score-input').forEach(input => {
                 input.addEventListener('change', () => {
-                    // Mapeia todos os inputs para o localData de uma vez
                     localData.finalScores = Array.from(document.querySelectorAll('[id^="score-input-"]')).map(el => el.value);
                     localData.games.forEach((game, gameIndex) => {
                          localData.participants.forEach(participant => {
-                            const sanitizedName = participant.replace(/\s|É/g, '');
-                            const inputEl = document.getElementById(`palpite-${sanitizedName}-${gameIndex}`);
-                            if(inputEl) localData.games[gameIndex].palpites[participant] = inputEl.value;
+                            const inputEl = document.getElementById(`palpite-${participant.name}-${gameIndex}`);
+                            if(inputEl) localData.games[gameIndex].palpites[participant.name] = inputEl.value;
                         });
                     });
                     saveDataToFirestore();
