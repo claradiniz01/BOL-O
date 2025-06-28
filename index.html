@@ -60,11 +60,16 @@
         <header class="text-center mb-8">
             <h1 class="text-4xl font-bold text-white">🔥 Bolão Crazys - Oitavas de Final 🔥</h1>
             <p class="text-xl text-gray-400 mt-2">Apuração em Tempo Real na Nuvem</p>
+            <div class="mt-4">
+                <a href="https://bolaocrazy.netlify.app/" target="_blank" class="inline-block bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2 px-6 rounded-lg transition-colors">
+                    Ver Ranking Externo
+                </a>
+            </div>
         </header>
         
         <div id="ranking-section" class="mb-8">
             <div class="ranking-card">
-                <h2 class="text-2xl font-bold text-white mb-4 text-center">🏆 Ranking de Palpiteiros 🏆</h2>
+                <h2 class="text-2xl font-bold text-white mb-4 text-center">🏆 Ranking Interno 🏆</h2>
                 <div id="ranking-list"></div>
             </div>
         </div>
@@ -125,7 +130,8 @@
             { name: 'JUDAS', displayName: '🔧 JUDAS' },
             { name: 'KLEITON', displayName: '💼 KLEITON' },
             { name: 'OSÉAS', displayName: '💆‍♂️ OSÉAS' },
-            { name: 'WALBER', displayName: '🧮 WALBER' }
+            { name: 'WALBER', displayName: '🧮 WALBER' },
+            { name: 'WANDERSON', displayName: '🎮 WANDERSON' }
         ];
         
         const jogosDaRodada = [
@@ -140,14 +146,15 @@
         ];
 
         const palpitesPreenchidos = {
-            IAGO:    ["2x1", "1x2", "3x1", "3x2", "2x0", "4x1", "2x1", "3x1"],
-            YASSER:  ["1x1", "1x3", "2x1", "2x1", "3x0", "3x1", "2x1", "1x1"],
-            ROBERTO: ["0x0", "1x1", "3x0", "1x2", "2x0", "3x0", "1x0", "1x1"],
-            JUDAS:   ["1x2", "2x2", "4x2", "0x3", "2x1", "3x2", "2x0", "2x0"],
-            GALEGO:  ["1x2", "1x2", "3x1", "1x3", "2x1", "4x1", "2x1", "1x0"],
-            KLEITON: ["0x1", "2x1", "4x1", "1x3", "1x2", "3x1", "2x1", "0x3"],
-            OSÉAS:   ["2x1", "1x2", "4x0", "1x2", "1x0", "3x0", "2x0", "0x2"],
-            WALBER:  ["1x0", "0x1", "5x0", "0x3", "2x0", "4x1", "3x1", "2x0"]
+            IAGO:      ["2x1", "1x2", "3x1", "3x2", "2x0", "4x1", "2x1", "3x1"],
+            YASSER:    ["1x1", "1x3", "2x1", "2x1", "3x0", "3x1", "2x1", "1x1"],
+            ROBERTO:   ["0x0", "1x1", "3x0", "1x2", "2x0", "3x0", "1x0", "1x1"],
+            JUDAS:     ["1x2", "2x2", "4x2", "0x3", "2x1", "3x2", "2x0", "2x0"],
+            GALEGO:    ["1x2", "1x2", "3x1", "1x3", "2x1", "4x1", "2x1", "1x0"],
+            KLEITON:   ["0x1", "2x1", "4x1", "1x3", "1x2", "3x1", "2x1", "0x3"],
+            OSÉAS:     ["2x1", "1x2", "4x0", "1x2", "1x0", "3x0", "2x0", "0x2"],
+            WALBER:    ["1x0", "0x1", "5x0", "0x3", "2x0", "4x1", "3x1", "2x0"],
+            WANDERSON: ["0x0", "1x1", "3x0", "0x3", "3x0", "4x0", "2x0", "1x0"]
         };
         
         function getInitialData() {
@@ -228,10 +235,16 @@
 
                 if (docSnapshot.exists()) {
                     localData = docSnapshot.data();
+                    const needsUpdate = !localData.participants || localData.participants.length !== participantsData.length || !localData.participants.some(p => p.name === 'WANDERSON');
+                    if (needsUpdate) {
+                         console.log("Estrutura de participantes ou horários desatualizada. Redefinindo dados do código.");
+                         localData = getInitialData();
+                         saveDataToFirestore(true); 
+                    }
                 } else {
                     console.log("Nenhum dado encontrado. Criando novo bolão.");
                     localData = getInitialData();
-                    saveDataToFirestore(); 
+                    saveDataToFirestore(true); 
                 }
                 
                 renderTable(localData);
@@ -242,15 +255,16 @@
             });
         }
 
-        async function saveDataToFirestore() {
+        async function saveDataToFirestore(overwrite = false) {
             if (!bolaoDocRef) return;
             try {
-                // Salva apenas os placares finais para evitar sobrescrever palpites
-                const dataToSave = {
-                    ...localData,
-                    finalScores: localData.finalScores 
-                };
-                await setDoc(bolaoDocRef, dataToSave, { merge: true });
+                let dataToSave = JSON.parse(JSON.stringify(localData));
+                if (overwrite) {
+                    await setDoc(bolaoDocRef, dataToSave);
+                } else {
+                    // Salva apenas os placares finais para não sobrescrever palpites travados
+                    await setDoc(bolaoDocRef, { finalScores: dataToSave.finalScores }, { merge: true });
+                }
             } catch (error) {
                 console.error("Erro ao salvar no Firestore:", error);
             }
@@ -323,7 +337,7 @@
                     <tr class="border-b border-gray-700 hover:bg-gray-600/50">
                         <td class="px-4 py-3">${game.grupo}</td>
                         <td class="px-4 py-3 font-medium text-white">${game.jogo}</td>
-                        <td class="px-4 py-3">${game.horario}</td>
+                        <td class="px-4 py-3 whitespace-nowrap">${game.horario}</td>
                         <td class="px-4 py-3 text-center">
                             <input type="text" id="score-input-${index}" class="score-input" value="${finalScores[index] || ''}">
                         </td>`;
