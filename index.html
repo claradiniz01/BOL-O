@@ -69,6 +69,11 @@
             </div>
         </div>
 
+        <div id="status-message" class="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg relative mb-8 text-center" role="alert">
+            <strong class="font-bold">⛔ Palpites Encerrados! ⛔</strong>
+            <span class="block sm:inline">A edição dos palpites foi travada. Boa sorte a todos!</span>
+        </div>
+
         <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 text-center">
             <h2 class="text-xl font-semibold mb-3 text-yellow-300">INFORMAÇÕES IMPORTANTES</h2>
             <p class="text-gray-300"><strong>Chave Pix para pagamento (R$ 20,00):</strong> 05723258354</p>
@@ -223,14 +228,6 @@
 
                 if (docSnapshot.exists()) {
                     localData = docSnapshot.data();
-                    const isOldFormat = localData.participants && localData.participants.length > 0 && typeof localData.participants[0] === 'string';
-                    const walberIsMissing = localData.participants && !localData.participants.some(p => p.name === 'WALBER');
-
-                    if (!localData.participants || !localData.games || !localData.finalScores || isOldFormat || walberIsMissing) {
-                         console.log("Formato de dados antigo detectado. Redefinindo para a nova estrutura.");
-                         localData = getInitialData();
-                         saveDataToFirestore();
-                    }
                 } else {
                     console.log("Nenhum dado encontrado. Criando novo bolão.");
                     localData = getInitialData();
@@ -248,8 +245,12 @@
         async function saveDataToFirestore() {
             if (!bolaoDocRef) return;
             try {
-                const dataToSave = JSON.parse(JSON.stringify(localData));
-                await setDoc(bolaoDocRef, dataToSave);
+                // Salva apenas os placares finais para evitar sobrescrever palpites
+                const dataToSave = {
+                    ...localData,
+                    finalScores: localData.finalScores 
+                };
+                await setDoc(bolaoDocRef, dataToSave, { merge: true });
             } catch (error) {
                 console.error("Erro ao salvar no Firestore:", error);
             }
@@ -333,7 +334,8 @@
                             <input type="text" 
                                    id="palpite-${participant.name}-${index}" 
                                    class="score-input" 
-                                   value="${palpite}">
+                                   value="${palpite}"
+                                   disabled>
                         </td>
                         <td class="px-4 py-3 pontos-cell bg-gray-900/50" id="points-${participant.name}-${index}">0</td>`;
                 });
@@ -356,15 +358,10 @@
         }
         
         function addEventListenersToInputs() {
-            document.querySelectorAll('.score-input').forEach(input => {
+            // Este evento agora afeta APENAS os inputs de placar final
+            document.querySelectorAll('input[id^="score-input-"]').forEach(input => {
                 input.addEventListener('change', () => {
                     localData.finalScores = Array.from(document.querySelectorAll('[id^="score-input-"]')).map(el => el.value);
-                    localData.games.forEach((game, gameIndex) => {
-                         localData.participants.forEach(participant => {
-                            const inputEl = document.getElementById(`palpite-${participant.name}-${gameIndex}`);
-                            if(inputEl) localData.games[gameIndex].palpites[participant.name] = inputEl.value;
-                        });
-                    });
                     saveDataToFirestore();
                 });
             });
