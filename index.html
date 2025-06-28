@@ -44,26 +44,6 @@
             display: flex; justify-content: center; align-items: center;
             z-index: 9999; color: white; font-size: 1.5rem;
         }
-        .remove-participant-btn {
-            cursor: pointer;
-            color: #f56565;
-            font-weight: bold;
-            margin-left: 8px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            transition: background-color 0.2s;
-        }
-        .remove-participant-btn:hover {
-            background-color: #c53030;
-            color: white;
-        }
-        .modal {
-             transition: opacity 0.25s ease;
-        }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -74,28 +54,6 @@
     <!-- Indicador de Carregamento -->
     <div id="loading" class="loading-overlay">
         <p>Conectando ao bolão...</p>
-    </div>
-
-    <!-- Modal de Alerta -->
-    <div id="alert-modal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
-        <div class="bg-gray-800 rounded-lg p-6 shadow-xl max-w-sm mx-auto">
-            <p class="text-gray-200 mb-6" id="alert-message">Mensagem de alerta.</p>
-            <div class="flex justify-end">
-                <button id="alert-ok-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-semibold">OK</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de Confirmação -->
-    <div id="confirmation-modal" class="modal fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
-        <div class="bg-gray-800 rounded-lg p-6 shadow-xl max-w-sm mx-auto">
-            <h3 class="text-lg font-bold text-white mb-4">Confirmar Ação</h3>
-            <p class="text-gray-300 mb-6" id="modal-message">Você tem certeza?</p>
-            <div class="flex justify-end gap-4">
-                <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-semibold">Cancelar</button>
-                <button id="modal-confirm-btn" class="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-semibold">Confirmar</button>
-            </div>
-        </div>
     </div>
 
     <div id="app-content" class="container mx-auto p-4 md:p-8" style="display: none;">
@@ -125,17 +83,6 @@
                 <li><span class="font-bold text-red-400">0 pontos:</span> Errar o resultado do jogo.</li>
             </ul>
         </div>
-        
-        <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
-            <h2 class="text-2xl font-semibold mb-4">Gerenciar Participantes</h2>
-            <form id="add-participant-form" class="flex flex-col sm:flex-row gap-4">
-                <input type="text" id="new-participant-name" placeholder="Nome do novo participante" class="score-input flex-grow bg-gray-700 border-gray-600" required>
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                    Adicionar Participante
-                </button>
-            </form>
-        </div>
-
 
         <div class="table-container bg-gray-800 rounded-lg shadow-lg">
             <table class="min-w-full text-sm text-left">
@@ -163,10 +110,9 @@
         let db;
         let bolaoDocRef;
         let localData = { games: [], finalScores: [], participants: [] }; 
-        let confirmationResolve = null;
 
         // --- DADOS INICIAIS DA RODADA ---
-        const initialParticipants = ["GALEGO", "ANDRÉ", "ROBERTO", "IAGO", "YASSER", "WALBER", "KLEITON", "OSÉAS", "JUDAS"];
+        const initialParticipants = ["GALEGO", "ROBERTO", "IAGO", "YASSER", "KLEITON", "OSÉAS", "JUDAS"];
         
         const jogosDaRodada = [
              { grupo: 'Oitavas', jogo: 'Palmeiras x Botafogo', horario: 'N/D' },
@@ -269,8 +215,8 @@
 
                 if (docSnapshot.exists()) {
                     localData = docSnapshot.data();
-                    // Garante que a estrutura de dados seja compatível
-                    if (!localData.participants || !localData.games || !localData.finalScores) {
+                    // Garante que a estrutura de dados seja compatível e força a atualização se a lista de participantes antiga for detectada
+                    if (!localData.participants || !localData.games || !localData.finalScores || localData.participants.includes("WALBER") || localData.participants.includes("ANDRÉ")) {
                          localData = getInitialData();
                          saveDataToFirestore();
                     }
@@ -290,12 +236,10 @@
         async function saveDataToFirestore() {
             if (!bolaoDocRef) return;
             try {
-                // Usando um clone para evitar problemas de serialização do Firebase com Proxies do Vue/React
                 const dataToSave = JSON.parse(JSON.stringify(localData));
                 await setDoc(bolaoDocRef, dataToSave);
             } catch (error) {
                 console.error("Erro ao salvar no Firestore:", error);
-                showAlert(`Erro ao salvar dados: ${error.message}`);
             }
         }
 
@@ -350,7 +294,7 @@
             tfoot.className = 'bg-gray-700 font-bold text-white text-lg';
             
             participants.forEach(name => {
-                thead.innerHTML += `<th class="px-4 py-3 text-center">${name}<span class="remove-participant-btn" data-name="${name}">&times;</span></th><th class="px-4 py-3 text-center bg-gray-600">Pts</th>`;
+                thead.innerHTML += `<th class="px-4 py-3 text-center">${name}</th><th class="px-4 py-3 text-center bg-gray-600">Pts</th>`;
             });
 
             games.forEach((game, index) => {
@@ -393,49 +337,6 @@
             }
         }
         
-        // --- GERENCIAMENTO DE PARTICIPANTES ---
-        function addParticipant(name) {
-            const upperCaseName = name.toUpperCase();
-            if (!upperCaseName || localData.participants.includes(upperCaseName)) {
-                showAlert("Nome de participante inválido ou já existente.");
-                return;
-            }
-            localData.participants.push(upperCaseName);
-            localData.games.forEach(game => {
-                game.palpites[upperCaseName] = "";
-            });
-            saveDataToFirestore();
-        }
-        
-        function removeParticipant(name) {
-            const index = localData.participants.indexOf(name);
-            if (index > -1) {
-                localData.participants.splice(index, 1);
-                localData.games.forEach(game => {
-                    delete game.palpites[name];
-                });
-                saveDataToFirestore();
-            }
-        }
-        
-        // --- MODAIS E EVENTOS ---
-        function showAlert(message) {
-            document.getElementById('alert-message').textContent = message;
-            document.getElementById('alert-modal').classList.remove('hidden');
-        }
-
-        function showConfirmationModal(message) {
-            return new Promise((resolve) => {
-                confirmationResolve = resolve;
-                document.getElementById('modal-message').textContent = message;
-                document.getElementById('confirmation-modal').classList.remove('hidden');
-            });
-        }
-        
-        function hideConfirmationModal() {
-            document.getElementById('confirmation-modal').classList.add('hidden');
-        }
-
         function addEventListenersToInputs() {
             document.querySelectorAll('.score-input').forEach(input => {
                 input.addEventListener('change', () => {
@@ -451,42 +352,11 @@
                     saveDataToFirestore();
                 });
             });
-
-            document.querySelectorAll('.remove-participant-btn').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    const nameToRemove = e.currentTarget.dataset.name;
-                    const confirmed = await showConfirmationModal(`Tem certeza que deseja remover ${nameToRemove}? Todos os palpites serão perdidos permanentemente.`);
-                    if (confirmed) {
-                        removeParticipant(nameToRemove);
-                    }
-                });
-            });
         }
 
         // --- INICIALIZAÇÃO ---
         document.addEventListener('DOMContentLoaded', () => {
             initializeFirebase();
-            
-            const addForm = document.getElementById('add-participant-form');
-            addForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const nameInput = document.getElementById('new-participant-name');
-                addParticipant(nameInput.value.trim());
-                nameInput.value = '';
-            });
-
-            // Eventos dos modais
-            document.getElementById('alert-ok-btn').addEventListener('click', () => {
-                document.getElementById('alert-modal').classList.add('hidden');
-            });
-            document.getElementById('modal-cancel-btn').addEventListener('click', () => {
-                hideConfirmationModal();
-                if(confirmationResolve) confirmationResolve(false);
-            });
-            document.getElementById('modal-confirm-btn').addEventListener('click', () => {
-                hideConfirmationModal();
-                if(confirmationResolve) confirmationResolve(true);
-            });
         });
     </script>
 </body>
