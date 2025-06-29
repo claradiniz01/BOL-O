@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bolão Crazys - Oitavas de Final</title>
+    <title>Bolão Crazys - Oitavas de Final (Reinício)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -58,7 +58,7 @@
 
     <div id="app-content" class="container mx-auto p-4 md:p-8" style="display: none;">
         <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-white">🔥 Bolão Crazys - Oitavas de Final 🔥</h1>
+            <h1 class="text-4xl font-bold text-white">🔥 Bolão Crazys - Oitavas de Final (Reinício) 🔥</h1>
             <p class="text-xl text-gray-400 mt-2">Apuração em Tempo Real na Nuvem</p>
             <div class="mt-4">
                 <a href="https://bolaocrazy.netlify.app/" target="_blank" class="inline-block bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2 px-6 rounded-lg transition-colors">
@@ -73,16 +73,11 @@
                 <div id="ranking-list"></div>
             </div>
         </div>
-
-        <div id="status-message" class="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg relative mb-8 text-center" role="alert">
-            <strong class="font-bold">⛔ Palpites Encerrados! ⛔</strong>
-            <span class="block sm:inline">A edição dos palpites foi travada. Boa sorte a todos!</span>
-        </div>
-
+        
         <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 text-center">
-            <h2 class="text-xl font-semibold mb-3 text-yellow-300">INFORMAÇÕES IMPORTANTES</h2>
-            <p class="text-gray-300"><strong>Chave Pix para pagamento (R$ 20,00):</strong> 05723258354</p>
-            <p class="text-gray-300 mt-2"><strong>Atenção:</strong> O resultado válido para os palpites inclui o placar da prorrogação, se houver!</p>
+            <h2 class="text-xl font-semibold mb-3 text-yellow-300">LEIAM:</h2>
+            <p class="text-gray-300 mt-2 text-lg"><strong>Regra de pontuação: <span class="text-green-400">Vale tempo normal</span></strong> (depois de tanto choro)</p>
+            <p class="text-gray-300 mt-4"><strong>Chave Pix para pagamento (R$ 20,00):</strong> 05723258354</p>
         </div>
 
         <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
@@ -123,20 +118,14 @@
 
         // --- DADOS INICIAIS DA RODADA ---
         const participantsData = [
-            { name: 'GALEGO', displayName: '👂 GALEGO' },
-            { name: 'IAGO', displayName: '⛏️ IAGO' },
-            { name: 'YASSER', displayName: '👮‍♂️ YASSER' },
-            { name: 'ROBERTO', displayName: '👨‍⚕️ ROBERTO' },
-            { name: 'JUDAS', displayName: '🔧 JUDAS' },
-            { name: 'KLEITON', displayName: '💼 KLEITON' },
-            { name: 'OSÉAS', displayName: '💆‍♂️ OSÉAS' },
-            { name: 'WALBER', displayName: '🧮 WALBER' },
+            { name: 'GALEGO', displayName: '👂 GALEGO' }, { name: 'IAGO', displayName: '⛏️ IAGO' },
+            { name: 'YASSER', displayName: '👮‍♂️ YASSER' }, { name: 'ROBERTO', displayName: '👨‍⚕️ ROBERTO' },
+            { name: 'JUDAS', displayName: '🔧 JUDAS' }, { name: 'KLEITON', displayName: '💼 KLEITON' },
+            { name: 'OSÉAS', displayName: '💆‍♂️ OSÉAS' }, { name: 'WALBER', displayName: '🧮 WALBER' },
             { name: 'WANDERSON', displayName: '🎮 WANDERSON' }
         ];
         
         const jogosDaRodada = [
-             { grupo: 'Oitavas', jogo: 'Palmeiras x Botafogo', horario: '28/06 13:00' },
-             { grupo: 'Oitavas', jogo: 'Benfica x Chelsea', horario: '28/06 17:00' },
              { grupo: 'Oitavas', jogo: 'Paris Saint-Germain x Inter Miami', horario: '29/06 13:00' },
              { grupo: 'Oitavas', jogo: 'Flamengo x Bayern de Munique', horario: '29/06 17:00' },
              { grupo: 'Oitavas', jogo: 'Inter de Milão x Fluminense', horario: '30/06 16:00' },
@@ -146,15 +135,15 @@
         ];
 
         const palpitesPreenchidos = {
-            IAGO:      ["2x1", "1x2", "3x1", "3x2", "2x0", "4x1", "2x1", "3x1"],
-            YASSER:    ["1x1", "1x3", "2x1", "2x1", "3x0", "3x1", "2x1", "1x1"],
-            ROBERTO:   ["0x0", "1x1", "3x0", "1x2", "2x0", "3x0", "1x0", "1x1"],
-            JUDAS:     ["1x2", "2x2", "4x2", "0x3", "2x1", "3x2", "2x0", "2x0"],
-            GALEGO:    ["1x2", "1x2", "3x1", "1x3", "2x1", "4x1", "2x1", "1x0"],
-            KLEITON:   ["0x1", "2x1", "4x1", "1x3", "1x2", "3x1", "2x1", "0x3"],
-            OSÉAS:     ["2x1", "1x2", "4x0", "1x2", "1x0", "3x0", "2x0", "0x2"],
-            WALBER:    ["1x0", "0x1", "5x0", "0x3", "2x0", "4x1", "3x1", "2x0"],
-            WANDERSON: ["0x0", "1x1", "3x0", "0x3", "3x0", "4x0", "2x0", "1x0"]
+            IAGO:      ["3x0", "2x1", "2x0", "4x1", "2x1", "3x1"],
+            YASSER:    ["2x1", "2x1", "3x0", "3x1", "2x1", "1x1"],
+            ROBERTO:   ["3x0", "1x2", "2x0", "3x0", "1x0", "3x1"],
+            JUDAS:     ["4x2", "0x3", "2x1", "3x2", "2x0", "2x0"],
+            GALEGO:    ["3x1", "1x2", "2x1", "3x1", "2x1", "2x1"],
+            KLEITON:   ["4x1", "1x3", "1x2", "3x1", "2x1", "0x3"],
+            OSÉAS:     ["4x0", "1x2", "1x0", "3x0", "2x0", "0x2"],
+            WALBER:    ["5x0", "0x3", "2x0", "4x1", "3x1", "2x0"],
+            WANDERSON: ["4x0", "0x3", "0x0", "3x0", "2x1", "1x0"]
         };
         
         function getInitialData() {
@@ -201,7 +190,6 @@
         // --- FUNÇÕES FIREBASE ---
         async function initializeFirebase() {
             try {
-                // ATENÇÃO: Configuração do Firebase
                 const firebaseConfig = {
                   apiKey: "AIzaSyD2EKVkjJaCEFXeZYN6p0XTC6BmpDUrdBw",
                   authDomain: "bolaocrazys.firebaseapp.com",
@@ -217,7 +205,8 @@
                 const auth = getAuth(app);
                 await signInAnonymously(auth);
                 
-                const docPath = `bolao/oitavas-final-oficial`;
+                // Novo caminho do documento para forçar o reinício da rodada
+                const docPath = `bolao/oitavas-final-reboot`;
                 bolaoDocRef = doc(db, docPath);
 
                 setupRealtimeListener();
@@ -235,14 +224,14 @@
 
                 if (docSnapshot.exists()) {
                     localData = docSnapshot.data();
-                    const needsUpdate = !localData.participants || localData.participants.length !== participantsData.length || !localData.participants.some(p => p.name === 'WANDERSON');
-                    if (needsUpdate) {
-                         console.log("Estrutura de participantes ou horários desatualizada. Redefinindo dados do código.");
+                    // Verifica se a estrutura de jogos é a antiga (8 jogos) e força a atualização se for
+                    if (localData.games.length !== jogosDaRodada.length) {
+                         console.log("Estrutura de jogos antiga detectada. Redefinindo para a nova rodada.");
                          localData = getInitialData();
-                         saveDataToFirestore(true); 
+                         saveDataToFirestore(true);
                     }
                 } else {
-                    console.log("Nenhum dado encontrado. Criando novo bolão.");
+                    console.log("Nenhum dado encontrado. Criando nova rodada.");
                     localData = getInitialData();
                     saveDataToFirestore(true); 
                 }
