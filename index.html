@@ -176,17 +176,17 @@
         function setupAuthListener() {
             onAuthStateChanged(auth, user => {
                 currentUser = user;
+                document.getElementById('loading').style.display = 'none'; // CORREÇÃO: Esconde o loading em todos os casos
                 if (user) {
                     document.getElementById('auth-screen').style.display = 'none';
                     document.getElementById('app-content').style.display = 'block';
                     document.getElementById('user-info').innerHTML = `
-                        <p>Bem-vindo, ${user.displayName}!</p>
+                        <p>Bem-vindo, ${user.displayName || 'Participante'}!</p>
                         <button id="logout-btn" class="text-sm text-red-500 hover:underline">Sair</button>
                     `;
                     document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
                     setupRealtimeListeners();
                 } else {
-                    document.getElementById('loading').style.display = 'none';
                     document.getElementById('auth-screen').style.display = 'flex';
                     document.getElementById('app-content').style.display = 'none';
                 }
@@ -333,30 +333,6 @@
                     savePrediction(e.target.dataset.gameId, e.target.value);
                 });
             });
-            document.getElementById('generate-report-btn').addEventListener('click', generateReport);
-        }
-
-        function generateReport() {
-            let reportContent = "RELATÓRIO DO BOLÃO - FASE FINAL\n================================\n\n";
-            Object.keys(localData.participants).forEach(uid => {
-                const name = localData.participants[uid];
-                reportContent += `PARTICIPANTE: ${name}\n--------------------------------\n`;
-                localData.games.forEach(game => {
-                    const prediction = localPredictions[uid]?.find(pred => pred.gameId === game.id);
-                    const score = prediction?.score || 'N/A';
-                    reportContent += `${game.team1} vs ${game.team2}: ${score}\n`;
-                });
-                reportContent += "\n";
-            });
-            const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'relatorio_bolao.txt';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
         }
 
         document.addEventListener('DOMContentLoaded', () => {
