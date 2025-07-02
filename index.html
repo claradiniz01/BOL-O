@@ -8,56 +8,43 @@
     <style>
         body { font-family: 'Inter', sans-serif; }
         .table-container { overflow-x: auto; }
-        .score-input, .winner-input {
+        .score-input, .styled-input {
             background-color: #4A5568; color: #F7FAFC; border: 1px solid #718096;
             border-radius: 0.375rem; text-align: center;
             font-weight: bold; padding: 0.5rem;
         }
         .score-input { width: 6rem; }
-        .winner-input { width: 10rem; }
-        .score-input:disabled, .winner-input:disabled {
+        .styled-input { text-align: left; }
+        .score-input:disabled {
             background-color: #2D3748;
             color: #718096;
             cursor: not-allowed;
         }
         .pontos-cell { font-weight: bold; font-size: 1.125rem; text-align: center; }
-        .total-points { color: #F6E05E; }
         .ranking-card {
             background: linear-gradient(145deg, #4a5568, #2d3748);
             border-radius: 0.75rem;
             padding: 1.5rem;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
-        .rank-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid #4a5568;
-        }
+        .rank-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid #4a5568; }
         .rank-item:last-child { border-bottom: none; }
         .rank-name { font-weight: 600; color: #e2e8f0; }
         .rank-score { font-size: 1.5rem; font-weight: bold; color: #f6e05e; }
-        .loading-overlay {
+        .loading-overlay, .auth-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(17, 24, 39, 0.8);
-            display: flex; justify-content: center; align-items: center;
+            background-color: rgba(17, 24, 39, 0.9);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
             z-index: 9999; color: white; font-size: 1.5rem;
         }
-        .remove-participant-btn {
-            cursor: pointer; color: #f56565; font-weight: bold; margin-left: 8px;
-        }
-        .remove-participant-btn:hover { color: #c53030; }
         .stage-header {
-            background-color: #2d3748;
-            color: #f6e05e;
-            padding: 0.75rem 1.5rem;
-            font-size: 1.25rem;
-            font-weight: bold;
-            border-top-left-radius: 0.5rem;
-            border-top-right-radius: 0.5rem;
+            background-color: #2d3748; color: #f6e05e; padding: 0.75rem 1.5rem;
+            font-size: 1.25rem; font-weight: bold; border-top-left-radius: 0.5rem; border-top-right-radius: 0.5rem;
             margin-top: 2rem;
         }
+        .auth-form { width: 90%; max-width: 400px; }
+        .auth-tab { cursor: pointer; padding: 0.5rem 1rem; border-bottom: 2px solid transparent; }
+        .auth-tab.active { border-color: #f6e05e; color: #f6e05e; }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -67,106 +54,101 @@
 
     <div id="loading" class="loading-overlay"><p>Conectando ao bolão...</p></div>
 
+    <div id="auth-screen" class="auth-overlay" style="display: none;">
+        <div class="auth-form bg-gray-800 p-8 rounded-lg shadow-2xl">
+            <div class="flex border-b border-gray-700 mb-6">
+                <div id="tab-login" class="auth-tab active">Login</div>
+                <div id="tab-register" class="auth-tab">Registar</div>
+            </div>
+            <form id="login-form" class="space-y-4">
+                <input type="text" id="login-username" placeholder="Nome de Utilizador" class="w-full styled-input" required>
+                <input type="password" id="login-password" placeholder="Senha" class="w-full styled-input" required>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Entrar</button>
+            </form>
+            <form id="register-form" class="space-y-4" style="display: none;">
+                <input type="text" id="register-username" placeholder="Escolha um Nome de Utilizador" class="w-full styled-input" required>
+                <input type="password" id="register-password" placeholder="Crie uma Senha" class="w-full styled-input" required>
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">Registar</button>
+            </form>
+            <p id="auth-error" class="text-red-500 text-sm mt-4 text-center"></p>
+        </div>
+    </div>
+
     <div id="app-content" class="container mx-auto p-4 md:p-8" style="display: none;">
         <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-white">🏆 Bolão da Fase Final 🏆</h1>
+            <div class="flex justify-between items-center">
+                <h1 class="text-4xl font-bold text-white">🏆 Bolão da Fase Final 🏆</h1>
+                <div id="user-info" class="text-right"></div>
+            </div>
             <p class="text-xl text-gray-400 mt-2">Mundial de Clubes</p>
         </header>
         
         <div id="ranking-section" class="mb-12"></div>
-
         <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
             <h2 class="text-2xl font-semibold mb-3">Regras de Pontuação</h2>
             <ul class="list-disc list-inside text-gray-300 space-y-2">
                 <li><span class="font-bold text-green-400">3 Pontos:</span> Acertar o placar exato do jogo no tempo normal.</li>
                 <li><span class="font-bold text-yellow-400">1 Ponto:</span> Acertar o vencedor do jogo no tempo normal (ou o empate).</li>
-                <li><span class="font-bold text-blue-400">1 Ponto Extra:</span> Para palpites de empate, acertar a equipe que se classifica.</li>
                 <li><span class="font-bold text-gray-400">Desempate:</span> Em caso de empate na pontuação, o participante com mais acertos de placar exato (3 pontos) fica na frente.</li>
             </ul>
         </div>
-        
-        <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-12">
-            <h2 class="text-2xl font-semibold mb-4">Gerenciar Participantes</h2>
-            <form id="add-participant-form" class="flex flex-col sm:flex-row gap-4">
-                <input type="text" id="new-participant-name" placeholder="Nome do novo participante" class="score-input flex-grow bg-gray-700 border-gray-600" required>
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Adicionar</button>
-            </form>
-        </div>
-
         <div id="games-section"></div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, onSnapshot, setDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        let db;
-        let bolaoDocRef;
+        let db, auth;
+        let bolaoDocRef, predictionsCollectionRef;
         let localData = null;
+        let localPredictions = {};
+        let currentUser = null;
         let isSaving = false;
-
-        const initialParticipants = ["GALEGO", "ANDRÉ", "ROBERTO", "IAGO", "YASSER", "WALBER", "KLEITON", "OSÉAS", "JUDAS", "WANDERSON"];
         
         const initialGames = [
-            { id: 'qf1', stage: 'Quartas de Final', team1: 'Fluminense', team2: 'Al-Hilal', date: '2025-07-04', time: '16:00', finalScore: '', finalWinner: '' },
-            { id: 'qf2', stage: 'Quartas de Final', team1: 'Palmeiras', team2: 'Chelsea', date: '2025-07-04', time: '22:00', finalScore: '', finalWinner: '' },
-            { id: 'qf3', stage: 'Quartas de Final', team1: 'PSG', team2: 'Bayern', date: '2025-07-05', time: '13:00', finalScore: '', finalWinner: '' },
-            { id: 'qf4', stage: 'Quartas de Final', team1: 'Real Madrid', team2: 'Dortmund', date: '2025-07-05', time: '17:00', finalScore: '', finalWinner: '' },
-            { id: 'sf1', stage: 'Semifinais', team1: 'Vencedor QF1', team2: 'Vencedor QF2', date: '2025-07-08', time: '16:00', finalScore: '', finalWinner: '' },
-            { id: 'sf2', stage: 'Semifinais', team1: 'Vencedor QF3', team2: 'Vencedor QF4', date: '2025-07-09', time: '16:00', finalScore: '', finalWinner: '' },
-            { id: '3rd', stage: 'Disputa do 3º Lugar', team1: 'Perdedor SF1', team2: 'Perdedor SF2', date: '2025-07-11', time: '16:00', finalScore: '', finalWinner: '' },
-            { id: 'final', stage: 'Final', team1: 'Vencedor SF1', team2: 'Vencedor SF2', date: '2025-07-12', time: '16:00', finalScore: '', finalWinner: '' },
+            { id: 'qf1', stage: 'Quartas de Final', team1: 'Fluminense', team2: 'Al-Hilal', date: '2025-07-04', time: '16:00', finalScore: '' },
+            { id: 'qf2', stage: 'Quartas de Final', team1: 'Palmeiras', team2: 'Chelsea', date: '2025-07-04', time: '22:00', finalScore: '' },
+            { id: 'qf3', stage: 'Quartas de Final', team1: 'PSG', team2: 'Bayern', date: '2025-07-05', time: '13:00', finalScore: '' },
+            { id: 'qf4', stage: 'Quartas de Final', team1: 'Real Madrid', team2: 'Dortmund', date: '2025-07-05', time: '17:00', finalScore: '' },
+            { id: 'sf1', stage: 'Semifinais', team1: 'Vencedor QF1', team2: 'Vencedor QF2', date: '2025-07-08', time: '16:00', finalScore: '' },
+            { id: 'sf2', stage: 'Semifinais', team1: 'Vencedor QF3', team2: 'Vencedor QF4', date: '2025-07-09', time: '16:00', finalScore: '' },
+            { id: '3rd', stage: 'Disputa do 3º Lugar', team1: 'Perdedor SF1', team2: 'Perdedor SF2', date: '2025-07-11', time: '16:00', finalScore: '' },
+            { id: 'final', stage: 'Final', team1: 'Vencedor SF1', team2: 'Vencedor SF2', date: '2025-07-12', time: '16:00', finalScore: '' },
         ];
 
         function getInitialData() {
-            const participants = [...initialParticipants];
-            const predictions = {};
-            participants.forEach(p => {
-                predictions[p] = initialGames.map(g => ({ gameId: g.id, score: '', winner: '' }));
-            });
-            return { games: initialGames, participants, predictions };
+            return { games: initialGames, participants: {} };
         }
         
-        function normalizeScore(score) {
-            return score ? score.replace(/\s/g, '').toLowerCase() : "";
-        }
-
+        function normalizeScore(score) { return score ? score.replace(/\s/g, '').toLowerCase() : ""; }
         function getGameResult(score) {
             const normScore = normalizeScore(score);
             if (!normScore || !normScore.includes('x')) return null;
             const parts = normScore.split('x').map(Number);
-            if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
+            if (parts.length !== 2 || parts.some(isNaN)) return null;
             return Math.sign(parts[0] - parts[1]);
         }
         
         function calculatePoints(prediction, game) {
             if (!prediction || !game) return 0;
-            let points = 0;
             const finalScoreNorm = normalizeScore(game.finalScore);
             const predictionScoreNorm = normalizeScore(prediction.score);
-
-            if (!finalScoreNorm) return 0; // Jogo não apurado
-
+            if (!finalScoreNorm) return 0;
             const finalResult = getGameResult(finalScoreNorm);
             const predictionResult = getGameResult(predictionScoreNorm);
+            if (predictionScoreNorm === finalScoreNorm) return 3;
+            if (predictionResult !== null && predictionResult === finalResult) return 1;
+            return 0;
+        }
 
-            // 3 pontos por placar exato
-            if (predictionScoreNorm === finalScoreNorm) {
-                points += 3;
-            } 
-            // 1 ponto por acertar o resultado
-            else if (predictionResult !== null && predictionResult === finalResult) {
-                points += 1;
-            }
-
-            // 1 ponto extra por acertar o classificado no empate
-            if (finalResult === 0 && predictionResult === 0) {
-                if (prediction.winner && game.finalWinner && prediction.winner.toUpperCase() === game.finalWinner.toUpperCase()) {
-                    points += 1;
-                }
-            }
-            return points;
+        function isStageLocked(stage) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); 
+            if (stage === 'Semifinais') return today < new Date('2025-07-06T00:00:00');
+            if (stage === 'Disputa do 3º Lugar' || stage === 'Final') return today < new Date('2025-07-10T00:00:00');
+            return false;
         }
 
         async function initializeFirebase() {
@@ -181,46 +163,69 @@
                 };
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-                await signInAnonymously(getAuth(app));
+                auth = getAuth(app);
                 bolaoDocRef = doc(db, 'bolao/fase-final-oficial');
-                setupRealtimeListener();
+                predictionsCollectionRef = collection(db, 'bolao/fase-final-oficial/predictions');
+                setupAuthListener();
             } catch (error) {
                 console.error("Firebase Init Error:", error);
                 document.getElementById('loading').innerHTML = `<p>Erro de conexão.</p>`;
             }
         }
 
-        function setupRealtimeListener() {
+        function setupAuthListener() {
+            onAuthStateChanged(auth, user => {
+                currentUser = user;
+                if (user) {
+                    document.getElementById('auth-screen').style.display = 'none';
+                    document.getElementById('app-content').style.display = 'block';
+                    document.getElementById('user-info').innerHTML = `
+                        <p>Bem-vindo, ${user.displayName}!</p>
+                        <button id="logout-btn" class="text-sm text-red-500 hover:underline">Sair</button>
+                    `;
+                    document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+                    setupRealtimeListeners();
+                } else {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('auth-screen').style.display = 'flex';
+                    document.getElementById('app-content').style.display = 'none';
+                }
+            });
+        }
+
+        function setupRealtimeListeners() {
             onSnapshot(bolaoDocRef, (docSnapshot) => {
-                let needsSave = false;
                 if (docSnapshot.exists()) {
                     localData = docSnapshot.data();
                 } else {
                     localData = getInitialData();
-                    needsSave = true;
+                    setDoc(bolaoDocRef, localData);
                 }
-                
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('app-content').style.display = 'block';
-                
-                if (needsSave) {
-                    saveDataToFirestore();
-                } else {
-                    renderUI();
-                }
-            }, (error) => {
-                console.error("Firestore Listener Error:", error);
-                document.getElementById('loading').innerHTML = `<p>Erro ao carregar dados.</p>`;
+                renderUI();
+            });
+
+            onSnapshot(predictionsCollectionRef, (querySnapshot) => {
+                localPredictions = {};
+                querySnapshot.forEach(doc => {
+                    localPredictions[doc.id] = doc.data().predictions;
+                });
+                renderUI();
             });
         }
 
-        async function saveDataToFirestore() {
-            if (!localData || isSaving) return;
+        async function savePrediction(gameId, score) {
+            if (!currentUser || isSaving) return;
             isSaving = true;
             try {
-                await setDoc(bolaoDocRef, localData);
+                const userPredictionsDocRef = doc(db, `bolao/fase-final-oficial/predictions/${currentUser.uid}`);
+                const userPredictions = localPredictions[currentUser.uid] ? [...localPredictions[currentUser.uid]] : initialGames.map(g => ({ gameId: g.id, score: '' }));
+                const predIndex = userPredictions.findIndex(p => p.gameId === gameId);
+                if (predIndex > -1) {
+                    userPredictions[predIndex].score = score;
+                }
+                await setDoc(userPredictionsDocRef, { predictions: userPredictions });
             } catch (error) {
-                console.error("Save Error:", error);
+                console.error("Save Prediction Error:", error);
             } finally {
                 isSaving = false;
             }
@@ -234,34 +239,31 @@
         }
 
         function renderRanking() {
-            const { participants, predictions, games } = localData;
+            const { participants } = localData;
             const rankingList = [];
-            participants.forEach(p => {
-                let totalScore = 0;
-                let exactHits = 0; // Contador para acertos exatos
-                if (predictions[p]) {
-                    predictions[p].forEach(pred => {
-                        const game = games.find(g => g.id === pred.gameId);
-                        totalScore += calculatePoints(pred, game);
+            if (!participants) return;
 
-                        // Lógica para contar acertos exatos
-                        if (game && game.finalScore) {
-                            const finalScoreNorm = normalizeScore(game.finalScore);
-                            const predictionScoreNorm = normalizeScore(pred.score);
-                            if (predictionScoreNorm && finalScoreNorm && predictionScoreNorm === finalScoreNorm) {
+            Object.keys(participants).forEach(uid => {
+                const name = participants[uid];
+                let totalScore = 0;
+                let exactHits = 0;
+                
+                if (localPredictions[uid]) {
+                    localPredictions[uid].forEach(pred => {
+                        const game = localData.games.find(g => g.id === pred.gameId);
+                        if (game) {
+                            totalScore += calculatePoints(pred, game);
+                            if (game.finalScore && normalizeScore(pred.score) === normalizeScore(game.finalScore)) {
                                 exactHits++;
                             }
                         }
                     });
                 }
-                rankingList.push({ name: p, score: totalScore, exactHits: exactHits });
+                rankingList.push({ name, score: totalScore, exactHits });
             });
 
-            // Ordena primeiro por pontos, depois por acertos exatos como desempate
             rankingList.sort((a, b) => {
-                if (b.score !== a.score) {
-                    return b.score - a.score;
-                }
+                if (b.score !== a.score) return b.score - a.score;
                 return b.exactHits - a.exactHits;
             });
 
@@ -287,51 +289,39 @@
 
             stages.forEach(stage => {
                 const stageGames = localData.games.filter(g => g.stage === stage);
-                let tableHTML = `
-                    <div class="stage-header">${stage}</div>
+                const isStageInputsLocked = isStageLocked(stage);
+                let tableHTML = `<div class="stage-header">${stage}</div>
                     <div class="table-container bg-gray-800 rounded-b-lg shadow-lg">
                         <table class="min-w-full text-sm text-left">
                             <thead class="bg-gray-700 text-xs text-gray-300 uppercase tracking-wider">
                                 <tr>
                                     <th class="px-4 py-3">Participante</th>
                                     <th class="px-4 py-3">Palpite (Tempo Normal)</th>
-                                    <th class="px-4 py-3">Classificado (se empatar)</th>
                                     <th class="px-4 py-3 text-center">Pontos</th>
                                 </tr>
-                            </thead>
-                            <tbody>`;
+                            </thead><tbody>`;
                 
                 stageGames.forEach(game => {
                     const formattedDate = new Date(game.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-                    tableHTML += `
-                        <tr class="bg-gray-700 font-bold">
-                            <td colspan="4" class="px-4 py-3 text-white">${game.team1} vs ${game.team2} <span class="text-gray-400 font-normal ml-2">(${formattedDate} - ${game.time})</span></td>
-                        </tr>
-                        <tr class="bg-gray-700 font-bold">
-                           <td class="px-4 py-3 text-center text-white" colspan="2">Placar Final: <input type="text" class="score-input ml-2 final-score-input" data-game-id="${game.id}" value="${game.finalScore || ''}"></td>
-                           <td class="px-4 py-3 text-center text-white" colspan="2">Vencedor (Pror/Pên): <input type="text" class="winner-input ml-2 final-winner-input" data-game-id="${game.id}" value="${game.finalWinner || ''}"></td>
-                        </tr>
-                    `;
+                    tableHTML += `<tr class="bg-gray-700 font-bold">
+                            <td colspan="3" class="px-4 py-3 text-white">${game.team1} vs ${game.team2} <span class="text-gray-400 font-normal ml-2">(${formattedDate} - ${game.time})</span></td>
+                        </tr>`;
 
-                    localData.participants.forEach(p => {
-                        const prediction = localData.predictions[p]?.find(pred => pred.gameId === game.id) || { score: '', winner: '' };
-                        const isDraw = getGameResult(prediction.score) === 0;
+                    Object.keys(localData.participants).forEach(uid => {
+                        const name = localData.participants[uid];
+                        const prediction = localPredictions[uid]?.find(pred => pred.gameId === game.id) || { score: '' };
                         const points = calculatePoints(prediction, game);
+                        const canEdit = currentUser && currentUser.uid === uid;
 
-                        tableHTML += `
-                            <tr class="border-b border-gray-700">
-                                <td class="px-4 py-4 font-medium text-white">${p} <span class="remove-participant-btn" data-name="${p}">&times;</span></td>
+                        tableHTML += `<tr class="border-b border-gray-700">
+                                <td class="px-4 py-4 font-medium text-white">${name}</td>
                                 <td class="px-4 py-4">
-                                    <input type="text" class="score-input prediction-input" data-participant="${p}" data-game-id="${game.id}" data-type="score" value="${prediction.score}">
-                                </td>
-                                <td class="px-4 py-4">
-                                    <input type="text" class="winner-input prediction-input" data-participant="${p}" data-game-id="${game.id}" data-type="winner" value="${prediction.winner}" ${!isDraw ? 'disabled' : ''}>
+                                    <input type="text" class="score-input prediction-input" data-game-id="${game.id}" value="${prediction.score}" ${!canEdit || isStageInputsLocked ? 'disabled' : ''}>
                                 </td>
                                 <td class="px-4 py-4 pontos-cell text-green-400">${points}</td>
                             </tr>`;
                     });
                 });
-
                 tableHTML += `</tbody></table></div>`;
                 gamesSection.innerHTML += tableHTML;
             });
@@ -340,68 +330,97 @@
         function addEventListeners() {
             document.querySelectorAll('.prediction-input').forEach(input => {
                 input.addEventListener('change', (e) => {
-                    const { participant, gameId, type } = e.target.dataset;
-                    const value = e.target.value;
-                    
-                    const predIndex = localData.predictions[participant].findIndex(p => p.gameId === gameId);
-                    if (predIndex > -1) {
-                        localData.predictions[participant][predIndex][type] = value;
-                    }
-                    saveDataToFirestore();
+                    savePrediction(e.target.dataset.gameId, e.target.value);
                 });
             });
+            document.getElementById('generate-report-btn').addEventListener('click', generateReport);
+        }
 
-            document.querySelectorAll('.final-score-input, .final-winner-input').forEach(input => {
-                 input.addEventListener('change', (e) => {
-                    const gameId = e.target.dataset.gameId;
-                    const gameIndex = localData.games.findIndex(g => g.id === gameId);
-                    if (gameIndex > -1) {
-                       if (e.target.classList.contains('final-score-input')) {
-                           localData.games[gameIndex].finalScore = e.target.value;
-                       } else {
-                           localData.games[gameIndex].finalWinner = e.target.value;
-                       }
-                       saveDataToFirestore();
-                    }
-                 });
-            });
-
-            document.querySelectorAll('.remove-participant-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const nameToRemove = e.target.dataset.name;
-                    removeParticipant(nameToRemove);
+        function generateReport() {
+            let reportContent = "RELATÓRIO DO BOLÃO - FASE FINAL\n================================\n\n";
+            Object.keys(localData.participants).forEach(uid => {
+                const name = localData.participants[uid];
+                reportContent += `PARTICIPANTE: ${name}\n--------------------------------\n`;
+                localData.games.forEach(game => {
+                    const prediction = localPredictions[uid]?.find(pred => pred.gameId === game.id);
+                    const score = prediction?.score || 'N/A';
+                    reportContent += `${game.team1} vs ${game.team2}: ${score}\n`;
                 });
+                reportContent += "\n";
             });
-        }
-
-        function addParticipant(name) {
-            if (!localData) return;
-            const upperCaseName = name.toUpperCase();
-            if (!upperCaseName || localData.participants.includes(upperCaseName)) return;
-            
-            localData.participants.push(upperCaseName);
-            localData.predictions[upperCaseName] = localData.games.map(g => ({ gameId: g.id, score: '', winner: '' }));
-            saveDataToFirestore();
-        }
-        
-        function removeParticipant(name) {
-            if (!localData) return;
-            const index = localData.participants.indexOf(name);
-            if (index > -1) {
-                localData.participants.splice(index, 1);
-                delete localData.predictions[name];
-                saveDataToFirestore();
-            }
+            const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'relatorio_bolao.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             initializeFirebase();
-            const addForm = document.getElementById('add-participant-form');
-            addForm.addEventListener('submit', (e) => {
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            const authError = document.getElementById('auth-error');
+            const tabLogin = document.getElementById('tab-login');
+            const tabRegister = document.getElementById('tab-register');
+
+            tabLogin.addEventListener('click', () => {
+                tabLogin.classList.add('active');
+                tabRegister.classList.remove('active');
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+            });
+
+            tabRegister.addEventListener('click', () => {
+                tabRegister.classList.add('active');
+                tabLogin.classList.remove('active');
+                registerForm.style.display = 'block';
+                loginForm.style.display = 'none';
+            });
+
+            loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const nameInput = document.getElementById('new-participant-name');
-                addParticipant(nameInput.value.trim());
-                nameInput.value = '';
+                const username = document.getElementById('login-username').value;
+                const password = document.getElementById('login-password').value;
+                const email = `${username.toLowerCase()}@bolao.crazys`;
+                try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                    authError.textContent = '';
+                } catch (error) {
+                    authError.textContent = 'Utilizador ou senha inválidos.';
+                }
+            });
+
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const username = document.getElementById('register-username').value.toUpperCase();
+                const password = document.getElementById('register-password').value;
+                const email = `${username.toLowerCase()}@bolao.crazys`;
+
+                if (Object.values(localData.participants).includes(username)) {
+                    authError.textContent = 'Este nome de utilizador já existe.';
+                    return;
+                }
+
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    await updateProfile(userCredential.user, { displayName: username });
+                    
+                    // Adiciona o novo participante à lista
+                    const newParticipants = { ...localData.participants, [userCredential.user.uid]: username };
+                    await setDoc(bolaoDocRef, { ...localData, participants: newParticipants });
+
+                    // Cria o documento de palpites para o novo utilizador
+                    const newUserPredictions = initialGames.map(g => ({ gameId: g.id, score: '' }));
+                    await setDoc(doc(db, `bolao/fase-final-oficial/predictions/${userCredential.user.uid}`), { predictions: newUserPredictions });
+                    
+                    authError.textContent = '';
+                } catch (error) {
+                    authError.textContent = 'Erro ao registar. A senha deve ter pelo menos 6 caracteres.';
+                }
             });
         });
     </script>
