@@ -81,6 +81,7 @@
                 <li><span class="font-bold text-green-400">3 Pontos:</span> Acertar o placar exato do jogo no tempo normal.</li>
                 <li><span class="font-bold text-yellow-400">1 Ponto:</span> Acertar o vencedor do jogo no tempo normal (ou o empate).</li>
                 <li><span class="font-bold text-blue-400">1 Ponto Extra:</span> Para palpites de empate, acertar a equipe que se classifica.</li>
+                <li><span class="font-bold text-gray-400">Desempate:</span> Em caso de empate na pontuação, o participante com mais acertos de placar exato (3 pontos) fica na frente.</li>
             </ul>
         </div>
         
@@ -237,16 +238,32 @@
             const rankingList = [];
             participants.forEach(p => {
                 let totalScore = 0;
+                let exactHits = 0; // Contador para acertos exatos
                 if (predictions[p]) {
                     predictions[p].forEach(pred => {
                         const game = games.find(g => g.id === pred.gameId);
                         totalScore += calculatePoints(pred, game);
+
+                        // Lógica para contar acertos exatos
+                        if (game && game.finalScore) {
+                            const finalScoreNorm = normalizeScore(game.finalScore);
+                            const predictionScoreNorm = normalizeScore(pred.score);
+                            if (predictionScoreNorm && finalScoreNorm && predictionScoreNorm === finalScoreNorm) {
+                                exactHits++;
+                            }
+                        }
                     });
                 }
-                rankingList.push({ name: p, score: totalScore });
+                rankingList.push({ name: p, score: totalScore, exactHits: exactHits });
             });
 
-            rankingList.sort((a, b) => b.score - a.score);
+            // Ordena primeiro por pontos, depois por acertos exatos como desempate
+            rankingList.sort((a, b) => {
+                if (b.score !== a.score) {
+                    return b.score - a.score;
+                }
+                return b.exactHits - a.exactHits;
+            });
 
             const rankingSection = document.getElementById('ranking-section');
             const trophies = ['🥇', '🥈', '🥉'];
@@ -257,7 +274,7 @@
                         <div class="rank-item">
                             <span class="font-bold text-lg">${index < 3 ? trophies[index] : `${index + 1}º`}</span>
                             <span class="rank-name">${p.name.toUpperCase()}</span>
-                            <span class="rank-score">${p.score}</span>
+                            <span class="rank-score">${p.score} <span class="text-sm text-gray-400 font-normal">(${p.exactHits}🎯)</span></span>
                         </div>
                     `).join('')}
                 </div>`;
@@ -291,8 +308,8 @@
                             <td colspan="4" class="px-4 py-3 text-white">${game.team1} vs ${game.team2} <span class="text-gray-400 font-normal ml-2">(${formattedDate} - ${game.time})</span></td>
                         </tr>
                         <tr class="bg-gray-700 font-bold">
-                           <td class="px-4 py-3 text-center text-white" colspan="2">Placar Final: <input type="text" class="score-input ml-2" data-game-id="${game.id}" id="final-score-${game.id}" value="${game.finalScore || ''}"></td>
-                           <td class="px-4 py-3 text-center text-white" colspan="2">Vencedor (Pror/Pên): <input type="text" class="winner-input ml-2" data-game-id="${game.id}" id="final-winner-${game.id}" value="${game.finalWinner || ''}"></td>
+                           <td class="px-4 py-3 text-center text-white" colspan="2">Placar Final: <input type="text" class="score-input ml-2 final-score-input" data-game-id="${game.id}" value="${game.finalScore || ''}"></td>
+                           <td class="px-4 py-3 text-center text-white" colspan="2">Vencedor (Pror/Pên): <input type="text" class="winner-input ml-2 final-winner-input" data-game-id="${game.id}" value="${game.finalWinner || ''}"></td>
                         </tr>
                     `;
 
@@ -334,12 +351,16 @@
                 });
             });
 
-            document.querySelectorAll('#final-score-input, #final-winner-input').forEach(input => {
+            document.querySelectorAll('.final-score-input, .final-winner-input').forEach(input => {
                  input.addEventListener('change', (e) => {
-                    const { gameId, type } = e.target.dataset;
+                    const gameId = e.target.dataset.gameId;
                     const gameIndex = localData.games.findIndex(g => g.id === gameId);
                     if (gameIndex > -1) {
-                       localData.games[gameIndex][type === 'score' ? 'finalScore' : 'finalWinner'] = e.target.value;
+                       if (e.target.classList.contains('final-score-input')) {
+                           localData.games[gameIndex].finalScore = e.target.value;
+                       } else {
+                           localData.games[gameIndex].finalWinner = e.target.value;
+                       }
                        saveDataToFirestore();
                     }
                  });
