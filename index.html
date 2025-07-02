@@ -31,7 +31,7 @@
         .rank-item:last-child { border-bottom: none; }
         .rank-name { font-weight: 600; color: #e2e8f0; }
         .rank-score { font-size: 1.5rem; font-weight: bold; color: #f6e05e; }
-        .loading-overlay, .auth-overlay {
+        .loading-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-color: rgba(17, 24, 39, 0.9);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -42,16 +42,10 @@
             font-size: 1.25rem; font-weight: bold; border-top-left-radius: 0.5rem; border-top-right-radius: 0.5rem;
             margin-top: 2rem;
         }
-        .auth-form { width: 90%; max-width: 400px; }
-        .auth-tab { cursor: pointer; padding: 0.5rem 1rem; border-bottom: 2px solid transparent; }
-        .auth-tab.active { border-color: #f6e05e; color: #f6e05e; }
-        .delete-participant-btn {
+        .remove-participant-btn {
             cursor: pointer; color: #f56565; font-weight: bold; margin-left: 8px;
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 20px; height: 20px; border-radius: 50%;
-            transition: background-color 0.2s;
         }
-        .delete-participant-btn:hover { background-color: #c53030; color: white; }
+        .remove-participant-btn:hover { color: #c53030; }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -61,36 +55,14 @@
 
     <div id="loading" class="loading-overlay"><p>Conectando ao bolão...</p></div>
 
-    <div id="auth-screen" class="auth-overlay" style="display: none;">
-        <div class="auth-form bg-gray-800 p-8 rounded-lg shadow-2xl">
-            <div class="flex border-b border-gray-700 mb-6">
-                <div id="tab-login" class="auth-tab active">Login</div>
-                <div id="tab-register" class="auth-tab">Registar</div>
-            </div>
-            <form id="login-form" class="space-y-4">
-                <input type="text" id="login-username" placeholder="Nome de Utilizador" class="w-full styled-input" required>
-                <input type="password" id="login-password" placeholder="Senha" class="w-full styled-input" required>
-                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Entrar</button>
-            </form>
-            <form id="register-form" class="space-y-4" style="display: none;">
-                <input type="text" id="register-username" placeholder="Escolha um Nome de Utilizador" class="w-full styled-input" required>
-                <input type="password" id="register-password" placeholder="Crie uma Senha" class="w-full styled-input" required>
-                <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">Registar</button>
-            </form>
-            <p id="auth-error" class="text-red-500 text-sm mt-4 text-center"></p>
-        </div>
-    </div>
-
     <div id="app-content" class="container mx-auto p-4 md:p-8" style="display: none;">
         <header class="text-center mb-8">
-            <div class="flex justify-between items-center">
-                <h1 class="text-4xl font-bold text-white">🏆 Bolão da Fase Final 🏆</h1>
-                <div id="user-info" class="text-right"></div>
-            </div>
+            <h1 class="text-4xl font-bold text-white">🏆 Bolão da Fase Final 🏆</h1>
             <p class="text-xl text-gray-400 mt-2">Mundial de Clubes</p>
         </header>
         
         <div id="ranking-section" class="mb-12"></div>
+
         <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
             <h2 class="text-2xl font-semibold mb-3">Regras de Pontuação</h2>
             <ul class="list-disc list-inside text-gray-300 space-y-2">
@@ -99,19 +71,34 @@
                 <li><span class="font-bold text-gray-400">Desempate:</span> Em caso de empate na pontuação, o participante com mais acertos de placar exato (3 pontos) fica na frente.</li>
             </ul>
         </div>
+        
+        <div class="grid md:grid-cols-2 gap-8 mb-12">
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-semibold mb-4">Gerenciar Participantes</h2>
+                <form id="add-participant-form" class="flex flex-col sm:flex-row gap-4">
+                    <input type="text" id="new-participant-name" placeholder="Nome do novo participante" class="score-input flex-grow bg-gray-700 border-gray-600" required>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Adicionar</button>
+                </form>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-semibold mb-4">Backup de Segurança</h2>
+                <button id="generate-report-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                    Gerar Relatório em .txt
+                </button>
+            </div>
+        </div>
+
         <div id="games-section"></div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, collection, onSnapshot, setDoc, getDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        let db, auth;
-        let bolaoDocRef, predictionsCollectionRef;
+        let db;
+        let bolaoDocRef;
         let localData = null;
-        let localPredictions = {};
-        let currentUser = null;
         let isSaving = false;
         
         const initialGames = [
@@ -126,7 +113,11 @@
         ];
 
         function getInitialData() {
-            return { games: initialGames, participants: {} };
+            return { 
+                games: initialGames, 
+                participants: [], 
+                predictions: {} 
+            };
         }
         
         function normalizeScore(score) { return score ? score.replace(/\s/g, '').toLowerCase() : ""; }
@@ -150,8 +141,6 @@
             return 0;
         }
 
-        const isAdmin = (user) => user && user.displayName === 'IAGO';
-
         function isStageLocked(stage) {
             const today = new Date();
             today.setHours(0, 0, 0, 0); 
@@ -172,123 +161,84 @@
                 };
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-                auth = getAuth(app);
+                await signInAnonymously(getAuth(app));
                 bolaoDocRef = doc(db, 'bolao/fase-final-oficial');
-                predictionsCollectionRef = collection(db, 'bolao/fase-final-oficial/predictions');
-                
-                setupAuthListener();
+                setupRealtimeListener();
             } catch (error) {
                 console.error("Firebase Init Error:", error);
                 document.getElementById('loading').innerHTML = `<p>Erro de conexão.</p>`;
             }
         }
 
-        function setupAuthListener() {
-            onAuthStateChanged(auth, user => {
-                currentUser = user;
-                if (user) {
-                    setupRealtimeListeners();
-                } else {
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('auth-screen').style.display = 'flex';
-                    document.getElementById('app-content').style.display = 'none';
-                }
-            });
-        }
-
-        function setupRealtimeListeners() {
+        function setupRealtimeListener() {
             onSnapshot(bolaoDocRef, (docSnapshot) => {
                 if (docSnapshot.exists()) {
                     localData = docSnapshot.data();
                 } else {
-                    // This case should ideally not happen after the first registration
                     localData = getInitialData();
+                    saveDataToFirestore();
                 }
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('app-content').style.display = 'block';
                 renderUI();
-            });
 
-            onSnapshot(predictionsCollectionRef, (querySnapshot) => {
-                localPredictions = {};
-                querySnapshot.forEach(doc => {
-                    localPredictions[doc.id] = doc.data().predictions;
-                });
-                renderUI();
+            }, (error) => {
+                console.error("Firestore Listener Error:", error);
+                document.getElementById('loading').innerHTML = `<p>Erro ao carregar dados.</p>`;
             });
-
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('auth-screen').style.display = 'none';
-            document.getElementById('app-content').style.display = 'block';
-            document.getElementById('user-info').innerHTML = `
-                <p>Bem-vindo, ${currentUser.displayName || 'Participante'}!</p>
-                <button id="logout-btn" class="text-sm text-red-500 hover:underline">Sair</button>
-            `;
-            document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
         }
 
-        async function savePrediction(gameId, score) {
-            if (!currentUser || isSaving) return;
+        async function saveDataToFirestore() {
+            if (!localData || isSaving) return;
             isSaving = true;
             try {
-                const userPredictionsDocRef = doc(db, `bolao/fase-final-oficial/predictions/${currentUser.uid}`);
-                const userPredictions = localPredictions[currentUser.uid] ? [...localPredictions[currentUser.uid]] : initialGames.map(g => ({ gameId: g.id, score: '' }));
-                const predIndex = userPredictions.findIndex(p => p.gameId === gameId);
-                if (predIndex > -1) {
-                    userPredictions[predIndex].score = score;
-                }
-                await setDoc(userPredictionsDocRef, { predictions: userPredictions });
+                await setDoc(bolaoDocRef, localData);
             } catch (error) {
-                console.error("Save Prediction Error:", error);
-            } finally {
-                isSaving = false;
-            }
-        }
-
-        async function saveFinalScore(gameId, score) {
-            if (!localData || isSaving || !isAdmin(currentUser)) return;
-            isSaving = true;
-            try {
-                const gameIndex = localData.games.findIndex(g => g.id === gameId);
-                if(gameIndex > -1) {
-                    const updatedGames = [...localData.games];
-                    updatedGames[gameIndex].finalScore = score;
-                    await setDoc(bolaoDocRef, { ...localData, games: updatedGames });
-                }
-            } catch (error) {
-                console.error("Save Final Score Error:", error);
+                console.error("Save Error:", error);
             } finally {
                 isSaving = false;
             }
         }
         
         function renderUI() {
-            if (!localData) return; 
+            if (!localData) return;
             renderGames();
             renderRanking();
             addEventListeners();
         }
 
         function renderRanking() {
-            const { participants } = localData;
+            const { participants, predictions, games } = localData;
             const rankingList = [];
-            if (!participants) return;
-
-            Object.keys(participants).forEach(uid => {
-                const name = participants[uid];
-                let totalScore = 0;
+            participants.forEach(p => {
+                const stageScores = {
+                    'Quartas de Final': 0,
+                    'Semifinais': 0,
+                    'Disputa do 3º Lugar': 0,
+                    'Final': 0
+                };
                 let exactHits = 0;
-                
-                if (localPredictions[uid]) {
-                    localPredictions[uid].forEach(pred => {
-                        const game = localData.games.find(g => g.id === pred.gameId);
+
+                if (predictions[p]) {
+                    predictions[p].forEach(pred => {
+                        const game = games.find(g => g.id === pred.gameId);
                         if (game) {
-                            totalScore += calculatePoints(pred, game);
-                            if (game.finalScore && normalizeScore(pred.score) === normalizeScore(game.finalScore)) {
-                                exactHits++;
+                            const points = calculatePoints(pred, game);
+                            stageScores[game.stage] += points;
+
+                            if (game.finalScore) {
+                                const finalScoreNorm = normalizeScore(game.finalScore);
+                                const predictionScoreNorm = normalizeScore(pred.score);
+                                if (predictionScoreNorm && finalScoreNorm && predictionScoreNorm === finalScoreNorm) {
+                                    exactHits++;
+                                }
                             }
                         }
                     });
                 }
-                rankingList.push({ name, score: totalScore, exactHits });
+                const totalScore = Object.values(stageScores).reduce((sum, score) => sum + score, 0);
+                rankingList.push({ name: p, score: totalScore, exactHits: exactHits, stageScores: stageScores });
             });
 
             rankingList.sort((a, b) => {
@@ -301,13 +251,15 @@
             rankingSection.innerHTML = `
                 <div class="ranking-card">
                     <h2 class="text-2xl font-bold text-white mb-4 text-center">🏆 Ranking de Palpiteiros 🏆</h2>
-                    ${rankingList.map((p, index) => `
+                    ${rankingList.map((p, index) => {
+                        const scoreBreakdown = `Q: ${p.stageScores['Quartas de Final']}, S: ${p.stageScores['Semifinais']}, 3º: ${p.stageScores['Disputa do 3º Lugar']}, F: ${p.stageScores['Final']}`;
+                        return `
                         <div class="rank-item">
                             <span class="font-bold text-lg">${index < 3 ? trophies[index] : `${index + 1}º`}</span>
                             <span class="rank-name">${p.name.toUpperCase()}</span>
-                            <span class="rank-score">${p.score} <span class="text-sm text-gray-400 font-normal">(${p.exactHits}🎯)</span></span>
+                            <span class="rank-score">${p.score} <span class="text-sm text-gray-400 font-normal">(${scoreBreakdown}) (${p.exactHits}🎯)</span></span>
                         </div>
-                    `).join('')}
+                    `}).join('')}
                 </div>`;
         }
         
@@ -319,7 +271,8 @@
             stages.forEach(stage => {
                 const stageGames = localData.games.filter(g => g.stage === stage);
                 const isStageInputsLocked = isStageLocked(stage);
-                let tableHTML = `<div class="stage-header">${stage}</div>
+                let tableHTML = `
+                    <div class="stage-header">${stage}</div>
                     <div class="table-container bg-gray-800 rounded-b-lg shadow-lg">
                         <table class="min-w-full text-sm text-left">
                             <thead class="bg-gray-700 text-xs text-gray-300 uppercase tracking-wider">
@@ -328,36 +281,35 @@
                                     <th class="px-4 py-3">Palpite (Tempo Normal)</th>
                                     <th class="px-4 py-3 text-center">Pontos</th>
                                 </tr>
-                            </thead><tbody>`;
+                            </thead>
+                            <tbody>`;
                 
                 stageGames.forEach(game => {
                     const formattedDate = new Date(game.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-                    tableHTML += `<tr class="bg-gray-700 font-bold">
+                    tableHTML += `
+                        <tr class="bg-gray-700 font-bold">
                             <td colspan="3" class="px-4 py-3 text-white">${game.team1} vs ${game.team2} <span class="text-gray-400 font-normal ml-2">(${formattedDate} - ${game.time})</span></td>
-                        </tr>`;
-                    
-                    if (isAdmin(currentUser)) {
-                        tableHTML += `<tr class="bg-gray-600">
-                           <td class="px-4 py-3 text-center text-white" colspan="3">Placar Final (Admin): <input type="text" class="score-input ml-2 final-score-input" data-game-id="${game.id}" value="${game.finalScore || ''}"></td>
-                        </tr>`;
-                    }
+                        </tr>
+                        <tr class="bg-gray-700 font-bold">
+                           <td class="px-4 py-3 text-center text-white" colspan="3">Placar Final: <input type="text" class="score-input ml-2 final-score-input" data-game-id="${game.id}" value="${game.finalScore || ''}"></td>
+                        </tr>
+                    `;
 
-                    Object.keys(localData.participants).forEach(uid => {
-                        const name = localData.participants[uid];
-                        const prediction = localPredictions[uid]?.find(pred => pred.gameId === game.id) || { score: '' };
+                    localData.participants.forEach(p => {
+                        const prediction = localData.predictions[p]?.find(pred => pred.gameId === game.id) || { score: '' };
                         const points = calculatePoints(prediction, game);
-                        const canEdit = currentUser && currentUser.uid === uid;
-                        const isAdminUser = isAdmin(currentUser);
 
-                        tableHTML += `<tr class="border-b border-gray-700">
-                                <td class="px-4 py-4 font-medium text-white">${name} ${isAdminUser && currentUser.uid !== uid ? `<span class="delete-participant-btn" data-uid="${uid}" data-name="${name}">&times;</span>` : ''}</td>
+                        tableHTML += `
+                            <tr class="border-b border-gray-700">
+                                <td class="px-4 py-4 font-medium text-white">${p} <span class="remove-participant-btn" data-name="${p}">&times;</span></td>
                                 <td class="px-4 py-4">
-                                    <input type="text" class="score-input prediction-input" data-game-id="${game.id}" value="${prediction.score}" ${!canEdit || isStageInputsLocked ? 'disabled' : ''}>
+                                    <input type="text" class="score-input prediction-input" data-participant="${p}" data-game-id="${game.id}" value="${prediction.score}" ${isStageInputsLocked ? 'disabled' : ''}>
                                 </td>
                                 <td class="px-4 py-4 pontos-cell text-green-400">${points}</td>
                             </tr>`;
                     });
                 });
+
                 tableHTML += `</tbody></table></div>`;
                 gamesSection.innerHTML += tableHTML;
             });
@@ -366,117 +318,96 @@
         function addEventListeners() {
             document.querySelectorAll('.prediction-input').forEach(input => {
                 input.addEventListener('change', (e) => {
-                    savePrediction(e.target.dataset.gameId, e.target.value);
+                    const { participant, gameId } = e.target.dataset;
+                    const value = e.target.value;
+                    
+                    if (!localData.predictions[participant]) {
+                        localData.predictions[participant] = initialGames.map(g => ({ gameId: g.id, score: '' }));
+                    }
+                    const predIndex = localData.predictions[participant].findIndex(p => p.gameId === gameId);
+                    if (predIndex > -1) {
+                        localData.predictions[participant][predIndex].score = value;
+                    }
+                    saveDataToFirestore();
                 });
             });
+
             document.querySelectorAll('.final-score-input').forEach(input => {
-                input.addEventListener('change', (e) => {
-                    saveFinalScore(e.target.dataset.gameId, e.target.value);
-                });
+                 input.addEventListener('change', (e) => {
+                    const gameId = e.target.dataset.gameId;
+                    const gameIndex = localData.games.findIndex(g => g.id === gameId);
+                    if (gameIndex > -1) {
+                       localData.games[gameIndex].finalScore = e.target.value;
+                       saveDataToFirestore();
+                    }
+                 });
             });
-            document.querySelectorAll('.delete-participant-btn').forEach(btn => {
+
+            document.querySelectorAll('.remove-participant-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    const userIdToDelete = e.target.dataset.uid;
-                    const userNameToDelete = e.target.dataset.name;
-                    deleteParticipant(userIdToDelete, userNameToDelete);
+                    const nameToRemove = e.target.dataset.name;
+                    removeParticipant(nameToRemove);
                 });
             });
+
+            document.getElementById('generate-report-btn').addEventListener('click', generateReport);
         }
 
-        async function deleteParticipant(userIdToDelete, userName) {
-            if (!isAdmin(currentUser)) return;
-
-            const batch = writeBatch(db);
-            const predictionDocRef = doc(db, `bolao/fase-final-oficial/predictions/${userIdToDelete}`);
-            batch.delete(predictionDocRef);
-
-            const updatedParticipants = { ...localData.participants };
-            delete updatedParticipants[userIdToDelete];
-            batch.update(bolaoDocRef, { participants: updatedParticipants });
-
-            try {
-                await batch.commit();
-            } catch (error) {
-                console.error("Error deleting participant:", error);
+        function addParticipant(name) {
+            if (!localData) return;
+            const upperCaseName = name.toUpperCase();
+            if (!upperCaseName || localData.participants.includes(upperCaseName)) return;
+            
+            localData.participants.push(upperCaseName);
+            localData.predictions[upperCaseName] = localData.games.map(g => ({ gameId: g.id, score: '' }));
+            saveDataToFirestore();
+        }
+        
+        function removeParticipant(name) {
+            if (!localData) return;
+            const index = localData.participants.indexOf(name);
+            if (index > -1) {
+                localData.participants.splice(index, 1);
+                delete localData.predictions[name];
+                saveDataToFirestore();
             }
+        }
+
+        function generateReport() {
+            if (!localData) return;
+            let reportContent = "RELATÓRIO DO BOLÃO - FASE FINAL\n";
+            reportContent += "================================\n\n";
+
+            localData.participants.forEach(p => {
+                reportContent += `PARTICIPANTE: ${p}\n`;
+                reportContent += "--------------------------------\n";
+                localData.games.forEach(game => {
+                    const prediction = localData.predictions[p]?.find(pred => pred.gameId === game.id);
+                    const score = prediction?.score || 'N/A';
+                    reportContent += `${game.team1} vs ${game.team2}: ${score}\n`;
+                });
+                reportContent += "\n";
+            });
+
+            const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'relatorio_bolao.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             initializeFirebase();
-            const loginForm = document.getElementById('login-form');
-            const registerForm = document.getElementById('register-form');
-            const authError = document.getElementById('auth-error');
-            const tabLogin = document.getElementById('tab-login');
-            const tabRegister = document.getElementById('tab-register');
-
-            tabLogin.addEventListener('click', () => {
-                tabLogin.classList.add('active');
-                tabRegister.classList.remove('active');
-                loginForm.style.display = 'block';
-                registerForm.style.display = 'none';
-            });
-
-            tabRegister.addEventListener('click', () => {
-                tabRegister.classList.add('active');
-                tabLogin.classList.remove('active');
-                registerForm.style.display = 'block';
-                loginForm.style.display = 'none';
-            });
-
-            loginForm.addEventListener('submit', async (e) => {
+            const addForm = document.getElementById('add-participant-form');
+            addForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                const username = document.getElementById('login-username').value;
-                const password = document.getElementById('login-password').value;
-                const email = `${username.toLowerCase()}@bolao.crazys`;
-                try {
-                    await signInWithEmailAndPassword(auth, email, password);
-                    authError.textContent = '';
-                } catch (error) {
-                    authError.textContent = 'Utilizador ou senha inválidos.';
-                }
-            });
-
-            registerForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const username = document.getElementById('register-username').value.toUpperCase();
-                const password = document.getElementById('register-password').value;
-                const email = `${username.toLowerCase()}@bolao.crazys`;
-                
-                try {
-                    const docSnap = await getDoc(bolaoDocRef);
-                    let currentData;
-                    if (docSnap.exists()) {
-                        currentData = docSnap.data();
-                    } else {
-                        // If the main doc doesn't exist, create it before proceeding.
-                        currentData = getInitialData();
-                        await setDoc(bolaoDocRef, currentData);
-                    }
-                    
-                    let currentParticipants = currentData.participants || {};
-                    if (Object.values(currentParticipants).includes(username)) {
-                        authError.textContent = 'Este nome de utilizador já existe.';
-                        return;
-                    }
-
-                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                    await updateProfile(userCredential.user, { displayName: username });
-                    
-                    const newParticipants = { ...currentParticipants, [userCredential.user.uid]: username };
-                    
-                    const batch = writeBatch(db);
-                    batch.set(bolaoDocRef, { ...currentData, participants: newParticipants }, { merge: true });
-
-                    const newUserPredictions = initialGames.map(g => ({ gameId: g.id, score: '' }));
-                    const userPredictionsDocRef = doc(db, `bolao/fase-final-oficial/predictions/${userCredential.user.uid}`);
-                    batch.set(userPredictionsDocRef, { predictions: newUserPredictions });
-                    
-                    await batch.commit();
-                    authError.textContent = '';
-                } catch (error) {
-                    console.error("Registration error:", error);
-                    authError.textContent = 'Erro ao registar. A senha deve ter pelo menos 6 caracteres.';
-                }
+                const nameInput = document.getElementById('new-participant-name');
+                addParticipant(nameInput.value.trim());
+                nameInput.value = '';
             });
         });
     </script>
