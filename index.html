@@ -277,9 +277,10 @@
                         <table class="min-w-full text-sm text-left">
                             <thead class="bg-gray-700 text-xs text-gray-300 uppercase tracking-wider">
                                 <tr>
-                                    <th class="px-4 py-3">Participante</th>
-                                    <th class="px-4 py-3">Palpite (Tempo Normal)</th>
-                                    <th class="px-4 py-3 text-center">Pontos</th>
+                                    <th class="px-4 py-3">Jogo</th>
+                                    <th class="px-4 py-3">Data/Hora</th>
+                                    <th class="px-4 py-3">Placar Final</th>
+                                    ${localData.participants.map(p => `<th class="px-4 py-3 text-center">${p}</th>`).join('')}
                                 </tr>
                             </thead>
                             <tbody>`;
@@ -287,27 +288,23 @@
                 stageGames.forEach(game => {
                     const formattedDate = new Date(game.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
                     tableHTML += `
-                        <tr class="bg-gray-700 font-bold">
-                            <td colspan="3" class="px-4 py-3 text-white">${game.team1} vs ${game.team2} <span class="text-gray-400 font-normal ml-2">(${formattedDate} - ${game.time})</span></td>
-                        </tr>
-                        <tr class="bg-gray-700 font-bold">
-                           <td class="px-4 py-3 text-center text-white" colspan="3">Placar Final: <input type="text" class="score-input ml-2 final-score-input" data-game-id="${game.id}" value="${game.finalScore || ''}"></td>
-                        </tr>
-                    `;
+                        <tr class="border-b border-gray-700">
+                            <td class="px-4 py-4 font-medium text-white">${game.team1} vs ${game.team2}</td>
+                            <td class="px-4 py-4">${formattedDate} ${game.time}</td>
+                            <td class="px-4 py-4">
+                                <input type="text" class="score-input final-score-input" data-game-id="${game.id}" value="${game.finalScore || ''}">
+                            </td>`;
 
                     localData.participants.forEach(p => {
                         const prediction = localData.predictions[p]?.find(pred => pred.gameId === game.id) || { score: '' };
                         const points = calculatePoints(prediction, game);
-
                         tableHTML += `
-                            <tr class="border-b border-gray-700">
-                                <td class="px-4 py-4 font-medium text-white">${p} <span class="remove-participant-btn" data-name="${p}">&times;</span></td>
-                                <td class="px-4 py-4">
-                                    <input type="text" class="score-input prediction-input" data-participant="${p}" data-game-id="${game.id}" value="${prediction.score}" ${isStageInputsLocked ? 'disabled' : ''}>
-                                </td>
-                                <td class="px-4 py-4 pontos-cell text-green-400">${points}</td>
-                            </tr>`;
+                            <td class="px-4 py-4 text-center">
+                                <input type="text" class="score-input prediction-input mx-auto" data-participant="${p}" data-game-id="${game.id}" value="${prediction.score}" ${isStageInputsLocked ? 'disabled' : ''}>
+                                <span class="text-xs text-green-400 block mt-1">${points} Pts</span>
+                            </td>`;
                     });
+                    tableHTML += `</tr>`;
                 });
 
                 tableHTML += `</tbody></table></div>`;
@@ -341,13 +338,6 @@
                        saveDataToFirestore();
                     }
                  });
-            });
-
-            document.querySelectorAll('.remove-participant-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const nameToRemove = e.target.dataset.name;
-                    removeParticipant(nameToRemove);
-                });
             });
 
             document.getElementById('generate-report-btn').addEventListener('click', generateReport);
