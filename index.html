@@ -184,7 +184,7 @@
         }
 
         function setupAuthListener() {
-            onAuthStateChanged(auth, async (user) => {
+            onAuthStateChanged(auth, user => {
                 currentUser = user;
                 if (user) {
                     setupRealtimeListeners();
@@ -201,8 +201,8 @@
                 if (docSnapshot.exists()) {
                     localData = docSnapshot.data();
                 } else {
+                    // This case should ideally not happen after the first registration
                     localData = getInitialData();
-                    setDoc(bolaoDocRef, localData);
                 }
                 renderUI();
             });
@@ -441,35 +441,40 @@
                 const username = document.getElementById('register-username').value.toUpperCase();
                 const password = document.getElementById('register-password').value;
                 const email = `${username.toLowerCase()}@bolao.crazys`;
-
-                if (!localData) { 
-                    authError.textContent = 'A carregar dados, por favor tente novamente.';
-                    return;
-                }
-
-                if (Object.values(localData.participants).includes(username)) {
-                    authError.textContent = 'Este nome de utilizador já existe.';
-                    return;
-                }
-
+                
                 try {
                     const docSnap = await getDoc(bolaoDocRef);
-                    if (!docSnap.exists()) {
-                        await setDoc(bolaoDocRef, getInitialData());
+                    let currentData;
+                    if (docSnap.exists()) {
+                        currentData = docSnap.data();
+                    } else {
+                        // If the main doc doesn't exist, create it before proceeding.
+                        currentData = getInitialData();
+                        await setDoc(bolaoDocRef, currentData);
+                    }
+                    
+                    let currentParticipants = currentData.participants || {};
+                    if (Object.values(currentParticipants).includes(username)) {
+                        authError.textContent = 'Este nome de utilizador já existe.';
+                        return;
                     }
 
                     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                     await updateProfile(userCredential.user, { displayName: username });
                     
-                    const docData = docSnap.exists() ? docSnap.data() : getInitialData();
-                    const newParticipants = { ...docData.participants, [userCredential.user.uid]: username };
-                    await setDoc(bolaoDocRef, { ...docData, participants: newParticipants });
+                    const newParticipants = { ...currentParticipants, [userCredential.user.uid]: username };
+                    
+                    const batch = writeBatch(db);
+                    batch.set(bolaoDocRef, { ...currentData, participants: newParticipants }, { merge: true });
 
                     const newUserPredictions = initialGames.map(g => ({ gameId: g.id, score: '' }));
-                    await setDoc(doc(db, `bolao/fase-final-oficial/predictions/${userCredential.user.uid}`), { predictions: newUserPredictions });
+                    const userPredictionsDocRef = doc(db, `bolao/fase-final-oficial/predictions/${userCredential.user.uid}`);
+                    batch.set(userPredictionsDocRef, { predictions: newUserPredictions });
                     
+                    await batch.commit();
                     authError.textContent = '';
                 } catch (error) {
+                    console.error("Registration error:", error);
                     authError.textContent = 'Erro ao registar. A senha deve ter pelo menos 6 caracteres.';
                 }
             });
