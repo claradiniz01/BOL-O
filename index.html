@@ -39,7 +39,7 @@
         }
         .stage-header {
             background-color: #2d3748; color: #f6e05e; padding: 0.75rem 1.5rem;
-            font-size: 1.25rem; font-weight: bold; border-top-left-radius: 0.5rem; border-top-right-radius: 0.5rem;
+            font-size: 1.25rem; font-weight: bold;
             margin-top: 2rem;
         }
         .remove-participant-btn {
@@ -285,7 +285,6 @@
             const stages = [...new Set(localData.games.map(g => g.stage))];
 
             stages.forEach(stage => {
-                const stageGames = localData.games.filter(g => g.stage === stage);
                 const isStageInputsLocked = isStageLocked(stage);
                 let tableHTML = `
                     <div class="stage-header">${stage}</div>
@@ -301,6 +300,7 @@
                             </thead>
                             <tbody>`;
                 
+                const stageGames = localData.games.filter(g => g.stage === stage);
                 stageGames.forEach(game => {
                     const formattedDate = new Date(game.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
                     tableHTML += `
@@ -371,7 +371,7 @@
             const upperCaseName = name.toUpperCase();
             if (!upperCaseName || localData.participants.includes(upperCaseName)) return;
             
-            localData.participants.push(upperCaseName);
+            localData.participants.unshift(upperCaseName); // Adiciona no início
             localData.predictions[upperCaseName] = localData.games.map(g => ({ gameId: g.id, score: '' }));
             saveDataToFirestore();
         }
@@ -426,4 +426,3 @@
     </script>
 </body>
 </html>
-
