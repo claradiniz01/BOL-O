@@ -116,16 +116,15 @@
             { id: 'qf2', stage: 'Quartas de Final', team1: 'Palmeiras', team2: 'Chelsea', date: '2025-07-04', time: '22:00', finalScore: '' },
             { id: 'qf3', stage: 'Quartas de Final', team1: 'PSG', team2: 'Bayern', date: '2025-07-05', time: '13:00', finalScore: '' },
             { id: 'qf4', stage: 'Quartas de Final', team1: 'Real Madrid', team2: 'Dortmund', date: '2025-07-05', time: '17:00', finalScore: '' },
-            { id: 'sf1', stage: 'Semifinais', team1: 'Vencedor QF1', team2: 'Vencedor QF2', date: '2025-07-08', time: '16:00', finalScore: '' },
-            { id: 'sf2', stage: 'Semifinais', team1: 'Vencedor QF3', team2: 'Vencedor QF4', date: '2025-07-09', time: '16:00', finalScore: '' },
-            { id: '3rd', stage: 'Disputa do 3º Lugar', team1: 'Perdedor SF1', team2: 'Perdedor SF2', date: '2025-07-11', time: '16:00', finalScore: '' },
+            { id: 'sf1', stage: 'Semifinais', team1: 'Al-Hilal', team2: 'Chelsea', date: '2025-07-08', time: '16:00', finalScore: '' },
+            { id: 'sf2', stage: 'Semifinais', team1: 'Bayern', team2: 'Real Madrid', date: '2025-07-09', time: '16:00', finalScore: '' },
             { id: 'final', stage: 'Final', team1: 'Vencedor SF1', team2: 'Vencedor SF2', date: '2025-07-12', time: '16:00', finalScore: '' },
         ];
 
         const initialPredictions = {
             'KLEITON':    [{gameId: 'qf1', score: '1x3'}, {gameId: 'qf2', score: '0x2'}, {gameId: 'qf3', score: '2x3'}, {gameId: 'qf4', score: '3x1'}],
             'WALBER':     [{gameId: 'qf1', score: '1x2'}, {gameId: 'qf2', score: '1x0'}, {gameId: 'qf3', score: '3x3'}, {gameId: 'qf4', score: '3x0'}],
-            'IAGO':       [{gameId: 'qf1', score: '0X4'}, {gameId: 'qf2', score: '1X3'}, {gameId: 'qf3', score: '1X3'}, {gameId: 'qf4', score: '2X0'}],
+            'IAGO':       [{gameId: 'qf1', score: '1x3'}, {gameId: 'qf2', score: '1X3'}, {gameId: 'qf3', score: '1X3'}, {gameId: 'qf4', score: '2X0'}],
             'JUDAS':      [{gameId: 'qf1', score: '1x1'}, {gameId: 'qf2', score: '0x0'}, {gameId: 'qf3', score: '2x3'}, {gameId: 'qf4', score: '1x1'}],
             'ROBERTO':    [{gameId: 'qf1', score: '1x1'}, {gameId: 'qf2', score: '1x1'}, {gameId: 'qf3', score: '2x1'}, {gameId: 'qf4', score: '3x1'}],
             'PEDRO':      [{gameId: 'qf1', score: '2x1'}, {gameId: 'qf2', score: '0x2'}, {gameId: 'qf3', score: '2x1'}, {gameId: 'qf4', score: '2x0'}],
@@ -176,9 +175,9 @@
         function isStageLocked(stage) {
             const today = new Date();
             today.setHours(0, 0, 0, 0); 
-            if (stage === 'Quartas de Final') return true; // Travado permanentemente
+            if (stage === 'Quartas de Final') return true;
             if (stage === 'Semifinais') return today < new Date('2025-07-06T00:00:00');
-            if (stage === 'Disputa do 3º Lugar' || stage === 'Final') return today < new Date('2025-07-10T00:00:00');
+            if (stage === 'Final') return today < new Date('2025-07-10T00:00:00');
             return false;
         }
 
@@ -248,7 +247,6 @@
                 const stageScores = {
                     'Quartas de Final': 0,
                     'Semifinais': 0,
-                    'Disputa do 3º Lugar': 0,
                     'Final': 0
                 };
                 let exactHits = 0;
@@ -256,7 +254,7 @@
                 if (predictions[p]) {
                     predictions[p].forEach(pred => {
                         const game = games.find(g => g.id === pred.gameId);
-                        if (game) {
+                        if (game && stageScores.hasOwnProperty(game.stage)) {
                             const points = calculatePoints(pred, game);
                             stageScores[game.stage] += points;
 
@@ -285,7 +283,7 @@
                 <div class="ranking-card">
                     <h2 class="text-2xl font-bold text-white mb-4 text-center">🏆 Ranking de Palpiteiros 🏆</h2>
                     ${rankingList.map((p, index) => {
-                        const scoreBreakdown = `Q: ${p.stageScores['Quartas de Final']}, S: ${p.stageScores['Semifinais']}, 3º: ${p.stageScores['Disputa do 3º Lugar']}, F: ${p.stageScores['Final']}`;
+                        const scoreBreakdown = `Q: ${p.stageScores['Quartas de Final']}, S: ${p.stageScores['Semifinais']}, F: ${p.stageScores['Final']}`;
                         return `
                         <div class="rank-item">
                             <div class="flex items-center">
