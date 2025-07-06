@@ -111,6 +111,7 @@
         let localData = null;
         let isSaving = false;
         
+        // UPDATED: Final scores for Quarter-Finals are now filled in.
         const initialGames = [
             { id: 'qf1', stage: 'Quartas de Final', team1: 'Fluminense', team2: 'Al-Hilal', date: '2025-07-04', time: '16:00', finalScore: '2x1' },
             { id: 'qf2', stage: 'Quartas de Final', team1: 'Palmeiras', team2: 'Chelsea', date: '2025-07-04', time: '22:00', finalScore: '1x2' },
@@ -176,7 +177,8 @@
         function isStageLocked(stage) {
             const today = new Date();
             today.setHours(0, 0, 0, 0); 
-            if (stage === 'Quartas de Final') return true;
+            // This logic locks the Quarter-Finals predictions as the games have passed.
+            if (stage === 'Quartas de Final') return true; 
             if (stage === 'Semifinais') return today < new Date('2025-07-06T00:00:00');
             if (stage === 'Disputa do 3º Lugar' || stage === 'Final') return today < new Date('2025-07-10T00:00:00');
             return false;
@@ -205,11 +207,13 @@
 
         function setupRealtimeListener() {
             onSnapshot(bolaoDocRef, (docSnapshot) => {
-                if (docSnapshot.exists()) {
+                if (docSnapshot.exists() && docSnapshot.data().games[0].finalScore) {
+                    // If data exists on Firestore and QF scores are filled, use it
                     localData = docSnapshot.data();
                 } else {
+                    // Otherwise, use the initial data from the code (with updated scores)
                     localData = getInitialData();
-                    saveDataToFirestore();
+                    saveDataToFirestore(); // Save the updated scores to Firestore
                 }
                 
                 document.getElementById('loading').style.display = 'none';
