@@ -122,6 +122,7 @@
             { id: 'final', stage: 'Final', team1: 'Vencedor SF1', team2: 'Vencedor SF2', date: '2025-07-12', time: '16:00', finalScore: '' },
         ];
         
+        // UPDATED: Hércules' prediction for sf1 is now 0x2.
         const initialPredictions = {
             'KLEITON':    [{gameId: 'qf1', score: '1x3'}, {gameId: 'qf2', score: '0x2'}, {gameId: 'qf3', score: '2x3'}, {gameId: 'qf4', score: '3x1'}, {gameId: 'sf1', score: '2x1'}, {gameId: 'sf2', score: '1x2'}],
             'WALBER':     [{gameId: 'qf1', score: '1x2'}, {gameId: 'qf2', score: '1x0'}, {gameId: 'qf3', score: '3x3'}, {gameId: 'qf4', score: '3x0'}, {gameId: 'sf1', score: '0x2'}, {gameId: 'sf2', score: '3x2'}],
@@ -129,7 +130,7 @@
             'JUDAS':      [{gameId: 'qf1', score: '1x1'}, {gameId: 'qf2', score: '0x0'}, {gameId: 'qf3', score: '2x3'}, {gameId: 'qf4', score: '1x1'}, {gameId: 'sf1', score: '3x0'}, {gameId: 'sf2', score: '2x0'}],
             'ROBERTO':    [{gameId: 'qf1', score: '1x1'}, {gameId: 'qf2', score: '1x1'}, {gameId: 'qf3', score: '2x1'}, {gameId: 'qf4', score: '3x1'}, {gameId: 'sf1', score: '0x3'}, {gameId: 'sf2', score: '1x1'}],
             'PEDRO':      [{gameId: 'qf1', score: '2x1'}, {gameId: 'qf2', score: '0x2'}, {gameId: 'qf3', score: '2x1'}, {gameId: 'qf4', score: '2x0'}, {gameId: 'sf1', score: '2x1'}, {gameId: 'sf2', score: '2x1'}],
-            'HÉRCULES':   [{gameId: 'qf1', score: '0x2'}, {gameId: 'qf2', score: '1x1'}, {gameId: 'qf3', score: '3x2'}, {gameId: 'qf4', score: '2x0'}, {gameId: 'sf1', score: '2x1'}, {gameId: 'sf2', score: '3x1'}],
+            'HÉRCULES':   [{gameId: 'qf1', score: '0x2'}, {gameId: 'qf2', score: '1x1'}, {gameId: 'qf3', score: '3x2'}, {gameId: 'qf4', score: '2x0'}, {gameId: 'sf1', score: '0x2'}, {gameId: 'sf2', score: '3x1'}],
             'GALEGO':     [{gameId: 'qf1', score: '2x2'}, {gameId: 'qf2', score: '1x2'}, {gameId: 'qf3', score: '3x2'}, {gameId: 'qf4', score: '1x1'}, {gameId: 'sf1', score: '1x3'}, {gameId: 'sf2', score: '3x2'}],
             'OSÉAS':      [{gameId: 'qf1', score: '0x3'}, {gameId: 'qf2', score: '0x3'}, {gameId: 'qf3', score: '1x2'}, {gameId: 'qf4', score: '2x1'}, {gameId: 'sf1', score: '1x0'}, {gameId: 'sf2', score: '1x1'}],
             'YASSER':     [{gameId: 'qf1', score: '1x2'}, {gameId: 'qf2', score: '0x2'}, {gameId: 'qf3', score: '2x2'}, {gameId: 'qf4', score: '3x1'}, {gameId: 'sf1', score: '1x2'}, {gameId: 'sf2', score: '2x2'}],
@@ -173,11 +174,8 @@
             return 0;
         }
         
-        // UPDATED: This function now ONLY locks participant predictions.
         function arePredictionsLocked(stage) {
-            // Lock predictions for stages that are completed or in progress.
             if (stage === 'Quartas de Final' || stage === 'Semifinais') return true;
-            // Lock logic for future stages
             if (stage === 'Disputa do 3º Lugar' || stage === 'Final') {
                  const today = new Date();
                  today.setHours(0, 0, 0, 0); 
@@ -186,9 +184,7 @@
             return false;
         }
 
-        // NEW: This function ONLY locks the final score input for completed stages.
         function isFinalScoreLocked(stage) {
-            // Only lock final scores for stages that are definitively finished.
             if (stage === 'Quartas de Final') return true;
             return false;
         }
@@ -217,15 +213,18 @@
         function setupRealtimeListener() {
             onSnapshot(bolaoDocRef, (docSnapshot) => {
                 if (docSnapshot.exists()) {
-                    localData = docSnapshot.data();
-                    const firstParticipant = localData.participants[0];
-                    const semiFinalPredictionExists = localData.predictions[firstParticipant]?.some(p => p.gameId === 'sf1' && p.score);
-
-                    if (!semiFinalPredictionExists) {
+                    let firestoreData = docSnapshot.data();
+                    // Always check if Hércules' score needs updating from the initial code
+                    let herculesPrediction = firestoreData.predictions['HÉRCULES']?.find(p => p.gameId === 'sf1');
+                    if (!herculesPrediction || herculesPrediction.score !== '0x2') {
+                        // If the score is wrong or missing, force an update from initial data
                         localData = getInitialData();
                         saveDataToFirestore();
+                    } else {
+                        localData = firestoreData;
                     }
                 } else {
+                    // If no data exists, create it with the correct initial data
                     localData = getInitialData();
                     saveDataToFirestore();
                 }
@@ -326,7 +325,6 @@
             const stages = [...new Set(localData.games.map(g => g.stage))];
 
             stages.forEach(stage => {
-                // UPDATED: Using separate functions for locking predictions and final scores
                 const predictionInputsLocked = arePredictionsLocked(stage);
                 const finalScoreInputLocked = isFinalScoreLocked(stage);
 
@@ -364,7 +362,6 @@
                             </td>
                             <td class="px-2 py-4">${formattedDate} ${game.time}</td>
                             <td class="px-2 py-4 final-score-col">
-                                <!-- UPDATED: Uses the new locking logic for final score -->
                                 <input type="text" class="score-input final-score-input" data-game-id="${game.id}" value="${game.finalScore || ''}" ${finalScoreInputLocked ? 'disabled' : ''}>
                             </td>`;
 
@@ -373,7 +370,6 @@
                         const points = calculatePoints(prediction, game);
                         tableHTML += `
                             <td class="px-2 py-4 text-center">
-                                <!-- UPDATED: Uses the correct locking logic for predictions -->
                                 <input type="text" class="score-input prediction-input mx-auto" data-participant="${p}" data-game-id="${game.id}" value="${prediction.score}" ${predictionInputsLocked ? 'disabled' : ''}>
                                 <span class="text-xs text-green-400 block mt-1">${points} Pts</span>
                             </td>`;
