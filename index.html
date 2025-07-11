@@ -173,13 +173,12 @@
             return 0;
         }
         
-        // UPDATED: Corrected the locking date for the final.
         function arePredictionsLocked(stage) {
             if (stage === 'Quartas de Final' || stage === 'Semifinais') return true;
             if (stage === 'Final') {
                  const today = new Date();
                  today.setHours(0, 0, 0, 0); 
-                 return today >= new Date('2025-07-13T00:00:00'); // Locks on the day of the final
+                 return today >= new Date('2025-07-13T00:00:00');
             }
             return false;
         }
@@ -210,33 +209,64 @@
             }
         }
 
+        // UPDATED: Corrected data synchronization logic to prevent overwriting user predictions.
         function setupRealtimeListener() {
             onSnapshot(bolaoDocRef, (docSnapshot) => {
                 if (isInitialLoad) {
-                    isInitialLoad = false;
-                    localData = getInitialData();
-                    
-                    if (docSnapshot.exists()) {
-                        const firestoreGames = docSnapshot.data().games;
-                        localData.games.forEach(localGame => {
-                            const firestoreGame = firestoreGames.find(fg => fg.id === localGame.id);
-                            if (firestoreGame && firestoreGame.finalScore) {
-                                localGame.finalScore = firestoreGame.finalScore;
+                    isInitialLoad = false; // Ensures this logic runs only once per page load
+
+                    if (!docSnapshot.exists()) {
+                        console.log("Document not found. Initializing database from code.");
+                        localData = getInitialData();
+                        saveDataToFirestore(); // First time setup
+                    } else {
+                        console.log("Document found. Merging database data with code structure.");
+                        localData = docSnapshot.data(); // Load existing data (with user predictions)
+                        const masterGames = getInitialData().games;
+                        let needsSave = false;
+
+                        // Sync game structure from code to local data without overwriting user input
+                        masterGames.forEach(masterGame => {
+                            const localGame = localData.games.find(g => g.id === masterGame.id);
+                            if (!localGame) {
+                                localData.games.push(masterGame); // Add new games if any
+                                needsSave = true;
+                            } else {
+                                // Update team names if they changed in code (e.g., final is set)
+                                if (localGame.team1 !== masterGame.team1 || localGame.team2 !== masterGame.team2) {
+                                    localGame.team1 = masterGame.team1;
+                                    localGame.team2 = masterGame.team2;
+                                    needsSave = true;
+                                }
+                                // Update final scores from code only if the local one is empty
+                                if (!localGame.finalScore && masterGame.finalScore) {
+                                    localGame.finalScore = masterGame.finalScore;
+                                    needsSave = true;
+                                }
                             }
                         });
+
+                        // Remove games that might have been deleted from code (e.g., 3rd place match)
+                        const gameCountBefore = localData.games.length;
+                        localData.games = localData.games.filter(localGame =>
+                            masterGames.some(masterGame => masterGame.id === localGame.id)
+                        );
+                        if (localData.games.length !== gameCountBefore) {
+                            needsSave = true;
+                        }
+
+                        if (needsSave) {
+                            saveDataToFirestore();
+                        }
                     }
-                    saveDataToFirestore();
                 } else {
+                    // After initial load, any change comes from Firestore
                     if (docSnapshot.exists()) {
                         localData = docSnapshot.data();
-                    } else {
-                        localData = getInitialData();
                     }
                 }
                 
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('app-content').style.display = 'block';
-                renderUI();
+                renderUI(); // Render with the correct, merged data
 
             }, (error) => {
                 console.error("Firestore Listener Error:", error);
@@ -261,6 +291,7 @@
             if (!localData) return;
             renderGames();
             renderRanking();
+            // Important: Re-add event listeners after every render
             addEventListeners();
         }
 
@@ -307,7 +338,7 @@
                 <div class="ranking-card">
                     <h2 class="text-2xl font-bold text-white mb-4 text-center">🏆 Ranking de Palpiteiros 🏆</h2>
                     ${rankingList.map((p, index) => {
-                        const scoreBreakdown = `Q: ${p.stageScores['Quartas de Final']}, S: ${p.stageScores['Semifinais']}, F: ${p.stageScores['Final']}`;
+                        const scoreBreakdown = `Q: ${p.stageScores['Quartas de Final']}, S: ${p.stageScores['Semifinais']}, F: ${p.stageScores['Final'] || 0}`;
                         return `
                         <div class="rank-item">
                             <div class="flex items-center">
@@ -350,7 +381,8 @@
                 stageGames.forEach(game => {
                     const finalScoreInputLocked = isFinalScoreLocked(game);
                     const formattedDate = new Date(game.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-                    const showEditButton = !predictionInputsLocked;
+                    // UPDATED: Edit button is now hidden for the final.
+                    const showEditButton = game.stage === 'Final' ? false : !predictionInputsLocked;
                     
                     tableHTML += `
                         <tr class="border-b border-gray-700">
@@ -375,7 +407,7 @@
                         const points = calculatePoints(prediction, game);
                         tableHTML += `
                             <td class="px-2 py-4 text-center">
-                                <input type="text" class="score-input prediction-input mx-auto" data-participant="${p}" data-game-id="${game.id}" value="${prediction.score}" ${predictionInputsLocked ? 'disabled' : ''}>
+                                <input type="text" class="score-input prediction-input mx-auto" data-participant="${p}" data-game-id="${game.id}" value="${prediction.score || ''}" ${predictionInputsLocked ? 'disabled' : ''}>
                                 <span class="text-xs text-green-400 block mt-1">${points} Pts</span>
                             </td>`;
                     });
@@ -388,6 +420,17 @@
         }
         
         function addEventListeners() {
+            // Remove any old listeners to prevent duplicates
+            const oldAddForm = document.getElementById('add-participant-form');
+            const newAddForm = oldAddForm.cloneNode(true);
+            oldAddForm.parentNode.replaceChild(newAddForm, oldAddForm);
+            newAddForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const nameInput = document.getElementById('new-participant-name');
+                addParticipant(nameInput.value.trim());
+                nameInput.value = '';
+            });
+
             document.querySelectorAll('.prediction-input').forEach(input => {
                 input.addEventListener('change', (e) => {
                     const { participant, gameId } = e.target.dataset;
@@ -399,6 +442,8 @@
                     const predIndex = localData.predictions[participant].findIndex(p => p.gameId === gameId);
                     if (predIndex > -1) {
                         localData.predictions[participant][predIndex].score = value;
+                    } else {
+                         localData.predictions[participant].push({ gameId: gameId, score: value });
                     }
                     saveDataToFirestore();
                 });
@@ -454,7 +499,10 @@
                 });
             });
 
-            document.getElementById('generate-report-btn').addEventListener('click', generateReport);
+            const oldReportBtn = document.getElementById('generate-report-btn');
+            const newReportBtn = oldReportBtn.cloneNode(true);
+            oldReportBtn.parentNode.replaceChild(newReportBtn, oldReportBtn);
+            newReportBtn.addEventListener('click', generateReport);
         }
 
         function addParticipant(name) {
@@ -506,15 +554,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             initializeFirebase();
-            const addForm = document.getElementById('add-participant-form');
-            addForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const nameInput = document.getElementById('new-participant-name');
-                addParticipant(nameInput.value.trim());
-                nameInput.value = '';
-            });
         });
     </script>
 </body>
 </html>
-
