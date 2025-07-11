@@ -112,7 +112,6 @@
         let isSaving = false;
         let isInitialLoad = true;
         
-        // UPDATED: Final match teams and semi-final scores are set.
         const initialGames = [
             { id: 'qf1', stage: 'Quartas de Final', team1: 'Fluminense', team2: 'Al-Hilal', date: '2025-07-04', time: '16:00', finalScore: '2x1' },
             { id: 'qf2', stage: 'Quartas de Final', team1: 'Palmeiras', team2: 'Chelsea', date: '2025-07-04', time: '22:00', finalScore: '1x2' },
@@ -174,17 +173,17 @@
             return 0;
         }
         
+        // UPDATED: Corrected the locking date for the final.
         function arePredictionsLocked(stage) {
             if (stage === 'Quartas de Final' || stage === 'Semifinais') return true;
             if (stage === 'Final') {
                  const today = new Date();
                  today.setHours(0, 0, 0, 0); 
-                 return today >= new Date('2025-07-11T00:00:00');
+                 return today >= new Date('2025-07-13T00:00:00'); // Locks on the day of the final
             }
             return false;
         }
 
-        // UPDATED: Now locks both semi-final games.
         function isFinalScoreLocked(game) {
             if (game.stage === 'Quartas de Final' || game.stage === 'Semifinais') return true;
             return false;
