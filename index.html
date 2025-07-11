@@ -112,15 +112,15 @@
         let isSaving = false;
         let isInitialLoad = true;
         
-        // UPDATED: Removed 3rd place match and updated final's date.
+        // UPDATED: Final match teams and semi-final scores are set.
         const initialGames = [
             { id: 'qf1', stage: 'Quartas de Final', team1: 'Fluminense', team2: 'Al-Hilal', date: '2025-07-04', time: '16:00', finalScore: '2x1' },
             { id: 'qf2', stage: 'Quartas de Final', team1: 'Palmeiras', team2: 'Chelsea', date: '2025-07-04', time: '22:00', finalScore: '1x2' },
             { id: 'qf3', stage: 'Quartas de Final', team1: 'PSG', team2: 'Bayern', date: '2025-07-05', time: '13:00', finalScore: '2x0' },
             { id: 'qf4', stage: 'Quartas de Final', team1: 'Real Madrid', team2: 'Dortmund', date: '2025-07-05', time: '17:00', finalScore: '3x2' },
             { id: 'sf1', stage: 'Semifinais', team1: 'Fluminense', team2: 'Chelsea', date: '2025-07-08', time: '16:00', finalScore: '0x2' },
-            { id: 'sf2', stage: 'Semifinais', team1: 'PSG', team2: 'Real Madrid', date: '2025-07-09', time: '16:00', finalScore: '' },
-            { id: 'final', stage: 'Final', team1: 'Vencedor SF1', team2: 'Vencedor SF2', date: '2025-07-13', time: '16:00', finalScore: '' },
+            { id: 'sf2', stage: 'Semifinais', team1: 'PSG', team2: 'Real Madrid', date: '2025-07-09', time: '16:00', finalScore: '4x0' },
+            { id: 'final', stage: 'Final', team1: 'Chelsea', team2: 'PSG', date: '2025-07-13', time: '16:00', finalScore: '' },
         ];
         
         const initialPredictions = {
@@ -176,7 +176,6 @@
         
         function arePredictionsLocked(stage) {
             if (stage === 'Quartas de Final' || stage === 'Semifinais') return true;
-            // UPDATED: Locking logic for the final based on the new date.
             if (stage === 'Final') {
                  const today = new Date();
                  today.setHours(0, 0, 0, 0); 
@@ -185,9 +184,9 @@
             return false;
         }
 
+        // UPDATED: Now locks both semi-final games.
         function isFinalScoreLocked(game) {
-            if (game.stage === 'Quartas de Final') return true;
-            if (game.id === 'sf1') return true;
+            if (game.stage === 'Quartas de Final' || game.stage === 'Semifinais') return true;
             return false;
         }
 
@@ -270,7 +269,6 @@
             const { participants, predictions, games } = localData;
             const rankingList = [];
             participants.forEach(p => {
-                // UPDATED: Removed 3rd place from score calculation.
                 const stageScores = {
                     'Quartas de Final': 0,
                     'Semifinais': 0,
@@ -310,7 +308,6 @@
                 <div class="ranking-card">
                     <h2 class="text-2xl font-bold text-white mb-4 text-center">🏆 Ranking de Palpiteiros 🏆</h2>
                     ${rankingList.map((p, index) => {
-                        // UPDATED: Removed 3rd place from score breakdown display.
                         const scoreBreakdown = `Q: ${p.stageScores['Quartas de Final']}, S: ${p.stageScores['Semifinais']}, F: ${p.stageScores['Final']}`;
                         return `
                         <div class="rank-item">
