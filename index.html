@@ -103,14 +103,13 @@
     <script src="https://widgets.365scores.com/main.js" async></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         let db;
         let bolaoDocRef;
         let localData = null;
         let isSaving = false;
-        let isInitialLoad = true;
         
         const initialGames = [
             { id: 'qf1', stage: 'Quartas de Final', team1: 'Fluminense', team2: 'Al-Hilal', date: '2025-07-04', time: '16:00', finalScore: '2x1' },
@@ -188,6 +187,7 @@
             return false;
         }
 
+        // UPDATED: Complete rewrite of the initialization logic to prevent loops and data loss.
         async function initializeFirebase() {
             try {
                 const firebaseConfig = {
@@ -202,84 +202,87 @@
                 db = getFirestore(app);
                 await signInAnonymously(getAuth(app));
                 bolaoDocRef = doc(db, 'bolao/fase-final-oficial');
+                
+                // One-time data synchronization
+                await syncInitialData();
+                
+                // Attach the listener for real-time updates
                 setupRealtimeListener();
+
             } catch (error) {
                 console.error("Firebase Init Error:", error);
                 document.getElementById('loading').innerHTML = `<p>Erro de conexão.</p>`;
             }
         }
 
-        // UPDATED: Corrected data synchronization logic to prevent overwriting user predictions.
-        function setupRealtimeListener() {
-            onSnapshot(bolaoDocRef, (docSnapshot) => {
-                if (isInitialLoad) {
-                    isInitialLoad = false; // Ensures this logic runs only once per page load
+        async function syncInitialData() {
+            const docSnap = await getDoc(bolaoDocRef);
+            const masterData = getInitialData();
 
-                    if (!docSnapshot.exists()) {
-                        console.log("Document not found. Initializing database from code.");
-                        localData = getInitialData();
-                        saveDataToFirestore(); // First time setup
+            if (!docSnap.exists()) {
+                console.log("Documento não encontrado. Inicializando banco de dados.");
+                localData = masterData;
+                await setDoc(bolaoDocRef, localData);
+            } else {
+                console.log("Documento encontrado. Sincronizando dados.");
+                localData = docSnap.data();
+                let needsSave = false;
+                
+                // Merge master game structure into local data
+                masterData.games.forEach(masterGame => {
+                    const localGame = localData.games.find(g => g.id === masterGame.id);
+                    if (!localGame) {
+                        localData.games.push(masterGame);
+                        needsSave = true;
                     } else {
-                        console.log("Document found. Merging database data with code structure.");
-                        localData = docSnapshot.data(); // Load existing data (with user predictions)
-                        const masterGames = getInitialData().games;
-                        let needsSave = false;
-
-                        // Sync game structure from code to local data without overwriting user input
-                        masterGames.forEach(masterGame => {
-                            const localGame = localData.games.find(g => g.id === masterGame.id);
-                            if (!localGame) {
-                                localData.games.push(masterGame); // Add new games if any
-                                needsSave = true;
-                            } else {
-                                // Update team names if they changed in code (e.g., final is set)
-                                if (localGame.team1 !== masterGame.team1 || localGame.team2 !== masterGame.team2) {
-                                    localGame.team1 = masterGame.team1;
-                                    localGame.team2 = masterGame.team2;
-                                    needsSave = true;
-                                }
-                                // Update final scores from code only if the local one is empty
-                                if (!localGame.finalScore && masterGame.finalScore) {
-                                    localGame.finalScore = masterGame.finalScore;
-                                    needsSave = true;
-                                }
-                            }
-                        });
-
-                        // Remove games that might have been deleted from code (e.g., 3rd place match)
-                        const gameCountBefore = localData.games.length;
-                        localData.games = localData.games.filter(localGame =>
-                            masterGames.some(masterGame => masterGame.id === localGame.id)
-                        );
-                        if (localData.games.length !== gameCountBefore) {
+                        if (localGame.team1 !== masterGame.team1 || localGame.team2 !== masterGame.team2 || localGame.finalScore !== masterGame.finalScore) {
+                            localGame.team1 = masterGame.team1;
+                            localGame.team2 = masterGame.team2;
+                            localGame.finalScore = masterGame.finalScore;
                             needsSave = true;
                         }
+                    }
+                });
 
-                        if (needsSave) {
-                            saveDataToFirestore();
-                        }
+                // Ensure all participants and their predictions arrays exist
+                masterData.participants.forEach(pName => {
+                    if (!localData.participants.includes(pName)) {
+                        localData.participants.push(pName);
+                        needsSave = true;
                     }
-                } else {
-                    // After initial load, any change comes from Firestore
-                    if (docSnapshot.exists()) {
-                        localData = docSnapshot.data();
+                    if (!localData.predictions[pName]) {
+                        localData.predictions[pName] = masterData.predictions[pName];
+                        needsSave = true;
                     }
+                });
+
+                if (needsSave) {
+                    await setDoc(bolaoDocRef, localData);
                 }
-                
-                renderUI(); // Render with the correct, merged data
-
-            }, (error) => {
-                console.error("Firestore Listener Error:", error);
-                document.getElementById('loading').innerHTML = `<p>Erro de conexão com o banco de dados. Verifique sua internet e tente recarregar.</p>`;
-            });
+            }
         }
 
+        function setupRealtimeListener() {
+            onSnapshot(bolaoDocRef, (docSnapshot) => {
+                if (docSnapshot.exists()) {
+                    localData = docSnapshot.data();
+                    console.log("Dados atualizados do Firestore.");
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('app-content').style.display = 'block';
+                    renderUI();
+                }
+            }, (error) => {
+                console.error("Firestore Listener Error:", error);
+                document.getElementById('loading').innerHTML = `<p>Erro ao carregar dados em tempo real.</p>`;
+            });
+        }
 
         async function saveDataToFirestore() {
             if (!localData || isSaving) return;
             isSaving = true;
             try {
                 await setDoc(bolaoDocRef, localData);
+                console.log("Dados salvos no Firestore.");
             } catch (error) {
                 console.error("Save Error:", error);
             } finally {
@@ -291,7 +294,6 @@
             if (!localData) return;
             renderGames();
             renderRanking();
-            // Important: Re-add event listeners after every render
             addEventListeners();
         }
 
@@ -381,7 +383,6 @@
                 stageGames.forEach(game => {
                     const finalScoreInputLocked = isFinalScoreLocked(game);
                     const formattedDate = new Date(game.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-                    // UPDATED: Edit button is now hidden for the final.
                     const showEditButton = game.stage === 'Final' ? false : !predictionInputsLocked;
                     
                     tableHTML += `
@@ -420,55 +421,51 @@
         }
         
         function addEventListeners() {
-            // Remove any old listeners to prevent duplicates
-            const oldAddForm = document.getElementById('add-participant-form');
-            const newAddForm = oldAddForm.cloneNode(true);
-            oldAddForm.parentNode.replaceChild(newAddForm, oldAddForm);
-            newAddForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const nameInput = document.getElementById('new-participant-name');
-                addParticipant(nameInput.value.trim());
-                nameInput.value = '';
-            });
+            const addForm = document.getElementById('add-participant-form');
+            if (addForm) {
+                addForm.onsubmit = (e) => {
+                    e.preventDefault();
+                    const nameInput = document.getElementById('new-participant-name');
+                    addParticipant(nameInput.value.trim());
+                    nameInput.value = '';
+                };
+            }
 
             document.querySelectorAll('.prediction-input').forEach(input => {
-                input.addEventListener('change', (e) => {
+                input.onchange = (e) => {
                     const { participant, gameId } = e.target.dataset;
                     const value = e.target.value;
                     
                     if (!localData.predictions[participant]) {
-                        localData.predictions[participant] = initialGames.map(g => ({ gameId: g.id, score: '' }));
+                        localData.predictions[participant] = getInitialData().predictions[participant] || [];
                     }
-                    const predIndex = localData.predictions[participant].findIndex(p => p.gameId === gameId);
+                    let predIndex = localData.predictions[participant].findIndex(p => p.gameId === gameId);
                     if (predIndex > -1) {
                         localData.predictions[participant][predIndex].score = value;
                     } else {
                          localData.predictions[participant].push({ gameId: gameId, score: value });
                     }
                     saveDataToFirestore();
-                });
+                };
             });
 
             document.querySelectorAll('.final-score-input').forEach(input => {
-                 input.addEventListener('change', (e) => {
+                 input.onchange = (e) => {
                     const gameId = e.target.dataset.gameId;
                     const gameIndex = localData.games.findIndex(g => g.id === gameId);
                     if (gameIndex > -1) {
                        localData.games[gameIndex].finalScore = e.target.value;
                        saveDataToFirestore();
                     }
-                 });
+                 };
             });
 
             document.querySelectorAll('.remove-participant-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const nameToRemove = e.target.dataset.name;
-                    removeParticipant(nameToRemove);
-                });
+                btn.onclick = (e) => removeParticipant(e.target.dataset.name);
             });
 
             document.querySelectorAll('.edit-game-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
+                btn.onclick = (e) => {
                     const gameId = e.target.dataset.gameId;
                     const viewMode = document.getElementById(`view-mode-${gameId}`);
                     const editMode = document.getElementById(`edit-mode-${gameId}`);
@@ -496,22 +493,20 @@
                         e.target.classList.remove('text-green-400');
                         e.target.classList.add('text-blue-400');
                     }
-                });
+                };
             });
 
-            const oldReportBtn = document.getElementById('generate-report-btn');
-            const newReportBtn = oldReportBtn.cloneNode(true);
-            oldReportBtn.parentNode.replaceChild(newReportBtn, oldReportBtn);
-            newReportBtn.addEventListener('click', generateReport);
+            const reportBtn = document.getElementById('generate-report-btn');
+            if(reportBtn) reportBtn.onclick = generateReport;
         }
 
         function addParticipant(name) {
-            if (!localData) return;
+            if (!localData || !name) return;
             const upperCaseName = name.toUpperCase();
-            if (!upperCaseName || localData.participants.includes(upperCaseName)) return;
+            if (localData.participants.includes(upperCaseName)) return;
             
             localData.participants.unshift(upperCaseName);
-            localData.predictions[upperCaseName] = initialGames.map(g => ({ gameId: g.id, score: '' }));
+            localData.predictions[upperCaseName] = getInitialData().predictions[upperCaseName] || initialGames.map(g => ({ gameId: g.id, score: '' }));
             saveDataToFirestore();
         }
         
