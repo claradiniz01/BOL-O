@@ -200,7 +200,7 @@
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 await signInAnonymously(getAuth(app));
-                bolaoDocRef = doc(db, 'bolao/fase-final-oficial-privado-v6');
+                bolaoDocRef = doc(db, 'bolao/fase-final-oficial-privado-v7');
                 
                 const docSnap = await getDoc(bolaoDocRef);
                 if (!docSnap.exists()) {
@@ -349,7 +349,6 @@
             const confirmContainer = document.getElementById('pin-confirm-container');
             const errorMsg = document.getElementById('pin-modal-error');
 
-            // Reset fields
             document.getElementById('pin-input').value = '';
             document.getElementById('pin-confirm-input').value = '';
             errorMsg.style.display = 'none';
@@ -358,7 +357,7 @@
                 title.textContent = `Crie seu PIN, ${userName}`;
                 text.textContent = 'Este PIN protegerá seus palpites. Guarde-o bem!';
                 confirmContainer.style.display = 'block';
-            } else { // mode === 'login'
+            } else {
                 title.textContent = `Bem-vindo de volta, ${userName}!`;
                 text.textContent = 'Digite seu PIN para continuar.';
                 confirmContainer.style.display = 'none';
@@ -369,7 +368,13 @@
 
         function hidePinModal() {
             document.getElementById('pin-modal-overlay').style.display = 'none';
-            document.getElementById('participant-selector').value = ""; // Reset selector
+            document.getElementById('participant-selector').value = "";
+        }
+
+        function logout() {
+            currentUser = null;
+            sessionStorage.removeItem('bolaoCurrentUser');
+            renderUI();
         }
 
         function addEventListeners() {
@@ -394,7 +399,7 @@
                 
                 const pinExists = localData.pins && localData.pins[selectedName];
 
-                if (pinExists) { // Login
+                if (pinExists) {
                     if (pin && localData.pins[selectedName] === pin) {
                         currentUser = selectedName;
                         sessionStorage.setItem('bolaoCurrentUser', currentUser);
@@ -404,7 +409,7 @@
                         errorMsg.textContent = 'PIN incorreto.';
                         errorMsg.style.display = 'block';
                     }
-                } else { // Create
+                } else {
                     const confirmPin = confirmInput.value;
                     if (!pin || !/^\d{4}$/.test(pin)) {
                         errorMsg.textContent = 'PIN inválido. Deve conter 4 números.';
