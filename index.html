@@ -167,12 +167,13 @@
             return 0;
         }
         
+        // UPDATED: Corrected locking logic for the final match
         function arePredictionsLocked(stage) {
             if (stage === 'Quartas de Final' || stage === 'Semifinais') return true;
             if (stage === 'Final') {
-                 const today = new Date();
-                 today.setHours(0, 0, 0, 0); 
-                 return today >= new Date('2025-07-13T00:00:00');
+                const lockTime = new Date('2025-07-13T16:00:00'); // Locks at game time
+                const now = new Date();
+                return now >= lockTime;
             }
             return false;
         }
@@ -182,7 +183,7 @@
             return false;
         }
 
-        async function initializeFirebase() {
+        async function initializeAppAndData() {
             try {
                 const firebaseConfig = {
                   apiKey: "AIzaSyD2EKVkjJaCEFXeZYN6p0XTC6BmpDUrdBw",
@@ -197,7 +198,6 @@
                 await signInAnonymously(getAuth(app));
                 bolaoDocRef = doc(db, 'bolao/fase-final-oficial');
                 
-                // UPDATED: New, stable data loading logic
                 const docSnap = await getDoc(bolaoDocRef);
                 if (!docSnap.exists()) {
                     console.log("No document! Initializing database...");
@@ -208,10 +208,8 @@
                     localData = docSnap.data();
                 }
                 
-                // Start listening for real-time updates AFTER initial load
                 setupRealtimeListener();
 
-                // Initial render
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('app-content').style.display = 'block';
                 renderUI();
@@ -225,7 +223,6 @@
         function setupRealtimeListener() {
             if (unsubscribe) unsubscribe();
             unsubscribe = onSnapshot(bolaoDocRef, (docSnapshot) => {
-                console.log("Real-time update received.");
                 if (docSnapshot.exists()) {
                     localData = docSnapshot.data();
                     renderUI();
@@ -238,7 +235,6 @@
             isSaving = true;
             try {
                 await setDoc(bolaoDocRef, localData);
-                console.log("Data saved to Firestore.");
             } catch (error) {
                 console.error("Save Error:", error);
             } finally {
@@ -347,12 +343,6 @@
                                 <div id="view-mode-${game.id}">
                                     <span>${game.team1}</span> vs <span>${game.team2}</span>
                                 </div>
-                                <div id="edit-mode-${game.id}" style="display:none;">
-                                    <input type="text" class="team-input" id="team1-input-${game.id}" value="${game.team1}">
-                                    vs
-                                    <input type="text" class="team-input" id="team2-input-${game.id}" value="${game.team2}">
-                                </div>
-                                ${showEditButton ? `<button class="text-xs text-blue-400 hover:underline mt-1 edit-game-btn" data-game-id="${game.id}">Editar</button>` : ''}
                             </td>
                             <td class="px-2 py-4">${formattedDate} ${game.time}</td>
                             <td class="px-2 py-4 final-score-col">
@@ -470,7 +460,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            initializeFirebase();
+            initializeAppAndData();
         });
     </script>
 </body>
