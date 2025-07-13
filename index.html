@@ -110,8 +110,9 @@
         let bolaoDocRef;
         let localData = null;
         let isSaving = false;
-        
-        const initialGames = [
+        let unsubscribe;
+
+        const masterGames = [
             { id: 'qf1', stage: 'Quartas de Final', team1: 'Fluminense', team2: 'Al-Hilal', date: '2025-07-04', time: '16:00', finalScore: '2x1' },
             { id: 'qf2', stage: 'Quartas de Final', team1: 'Palmeiras', team2: 'Chelsea', date: '2025-07-04', time: '22:00', finalScore: '1x2' },
             { id: 'qf3', stage: 'Quartas de Final', team1: 'PSG', team2: 'Bayern', date: '2025-07-05', time: '13:00', finalScore: '2x0' },
@@ -121,7 +122,7 @@
             { id: 'final', stage: 'Final', team1: 'Chelsea', team2: 'PSG', date: '2025-07-13', time: '16:00', finalScore: '' },
         ];
         
-        const initialPredictions = {
+        const masterPredictions = {
             'KLEITON':    [{gameId: 'qf1', score: '1x3'}, {gameId: 'qf2', score: '0x2'}, {gameId: 'qf3', score: '2x3'}, {gameId: 'qf4', score: '3x1'}, {gameId: 'sf1', score: '2x1'}, {gameId: 'sf2', score: '1x2'}],
             'WALBER':     [{gameId: 'qf1', score: '1x2'}, {gameId: 'qf2', score: '1x0'}, {gameId: 'qf3', score: '3x3'}, {gameId: 'qf4', score: '3x0'}, {gameId: 'sf1', score: '0x2'}, {gameId: 'sf2', score: '3x2'}],
             'IAGO':       [{gameId: 'qf1', score: '1x3'}, {gameId: 'qf2', score: '1X3'}, {gameId: 'qf3', score: '1X3'}, {gameId: 'qf4', score: '2X0'}, {gameId: 'sf1', score: '2x4'}, {gameId: 'sf2', score: '2x3'}],
@@ -136,16 +137,10 @@
         };
 
         function getInitialData() {
-            const participants = Object.keys(initialPredictions);
-            const predictions = {};
-            participants.forEach(p => {
-                predictions[p] = initialGames.map(g => {
-                    const savedPred = initialPredictions[p]?.find(sp => sp.gameId === g.id);
-                    return { gameId: g.id, score: savedPred ? savedPred.score : '' };
-                });
-            });
+            const participants = Object.keys(masterPredictions);
+            const predictions = { ...masterPredictions };
             return { 
-                games: initialGames, 
+                games: masterGames, 
                 participants, 
                 predictions 
             };
@@ -187,7 +182,6 @@
             return false;
         }
 
-        // UPDATED: Complete rewrite of the initialization logic to prevent loops and data loss.
         async function initializeFirebase() {
             try {
                 const firebaseConfig = {
@@ -203,11 +197,24 @@
                 await signInAnonymously(getAuth(app));
                 bolaoDocRef = doc(db, 'bolao/fase-final-oficial');
                 
-                // One-time data synchronization
-                await syncInitialData();
+                // UPDATED: New, stable data loading logic
+                const docSnap = await getDoc(bolaoDocRef);
+                if (!docSnap.exists()) {
+                    console.log("No document! Initializing database...");
+                    localData = getInitialData();
+                    await saveDataToFirestore();
+                } else {
+                    console.log("Document exists. Loading from database.");
+                    localData = docSnap.data();
+                }
                 
-                // Attach the listener for real-time updates
+                // Start listening for real-time updates AFTER initial load
                 setupRealtimeListener();
+
+                // Initial render
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('app-content').style.display = 'block';
+                renderUI();
 
             } catch (error) {
                 console.error("Firebase Init Error:", error);
@@ -215,65 +222,14 @@
             }
         }
 
-        async function syncInitialData() {
-            const docSnap = await getDoc(bolaoDocRef);
-            const masterData = getInitialData();
-
-            if (!docSnap.exists()) {
-                console.log("Documento não encontrado. Inicializando banco de dados.");
-                localData = masterData;
-                await setDoc(bolaoDocRef, localData);
-            } else {
-                console.log("Documento encontrado. Sincronizando dados.");
-                localData = docSnap.data();
-                let needsSave = false;
-                
-                // Merge master game structure into local data
-                masterData.games.forEach(masterGame => {
-                    const localGame = localData.games.find(g => g.id === masterGame.id);
-                    if (!localGame) {
-                        localData.games.push(masterGame);
-                        needsSave = true;
-                    } else {
-                        if (localGame.team1 !== masterGame.team1 || localGame.team2 !== masterGame.team2 || localGame.finalScore !== masterGame.finalScore) {
-                            localGame.team1 = masterGame.team1;
-                            localGame.team2 = masterGame.team2;
-                            localGame.finalScore = masterGame.finalScore;
-                            needsSave = true;
-                        }
-                    }
-                });
-
-                // Ensure all participants and their predictions arrays exist
-                masterData.participants.forEach(pName => {
-                    if (!localData.participants.includes(pName)) {
-                        localData.participants.push(pName);
-                        needsSave = true;
-                    }
-                    if (!localData.predictions[pName]) {
-                        localData.predictions[pName] = masterData.predictions[pName];
-                        needsSave = true;
-                    }
-                });
-
-                if (needsSave) {
-                    await setDoc(bolaoDocRef, localData);
-                }
-            }
-        }
-
         function setupRealtimeListener() {
-            onSnapshot(bolaoDocRef, (docSnapshot) => {
+            if (unsubscribe) unsubscribe();
+            unsubscribe = onSnapshot(bolaoDocRef, (docSnapshot) => {
+                console.log("Real-time update received.");
                 if (docSnapshot.exists()) {
                     localData = docSnapshot.data();
-                    console.log("Dados atualizados do Firestore.");
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('app-content').style.display = 'block';
                     renderUI();
                 }
-            }, (error) => {
-                console.error("Firestore Listener Error:", error);
-                document.getElementById('loading').innerHTML = `<p>Erro ao carregar dados em tempo real.</p>`;
             });
         }
 
@@ -282,7 +238,7 @@
             isSaving = true;
             try {
                 await setDoc(bolaoDocRef, localData);
-                console.log("Dados salvos no Firestore.");
+                console.log("Data saved to Firestore.");
             } catch (error) {
                 console.error("Save Error:", error);
             } finally {
@@ -421,23 +377,13 @@
         }
         
         function addEventListeners() {
-            const addForm = document.getElementById('add-participant-form');
-            if (addForm) {
-                addForm.onsubmit = (e) => {
-                    e.preventDefault();
-                    const nameInput = document.getElementById('new-participant-name');
-                    addParticipant(nameInput.value.trim());
-                    nameInput.value = '';
-                };
-            }
-
             document.querySelectorAll('.prediction-input').forEach(input => {
-                input.onchange = (e) => {
+                input.addEventListener('change', (e) => {
                     const { participant, gameId } = e.target.dataset;
                     const value = e.target.value;
                     
                     if (!localData.predictions[participant]) {
-                        localData.predictions[participant] = getInitialData().predictions[participant] || [];
+                        localData.predictions[participant] = [];
                     }
                     let predIndex = localData.predictions[participant].findIndex(p => p.gameId === gameId);
                     if (predIndex > -1) {
@@ -446,67 +392,43 @@
                          localData.predictions[participant].push({ gameId: gameId, score: value });
                     }
                     saveDataToFirestore();
-                };
+                });
             });
 
             document.querySelectorAll('.final-score-input').forEach(input => {
-                 input.onchange = (e) => {
+                 input.addEventListener('change', (e) => {
                     const gameId = e.target.dataset.gameId;
                     const gameIndex = localData.games.findIndex(g => g.id === gameId);
                     if (gameIndex > -1) {
                        localData.games[gameIndex].finalScore = e.target.value;
                        saveDataToFirestore();
                     }
-                 };
+                 });
             });
 
             document.querySelectorAll('.remove-participant-btn').forEach(btn => {
                 btn.onclick = (e) => removeParticipant(e.target.dataset.name);
             });
-
-            document.querySelectorAll('.edit-game-btn').forEach(btn => {
-                btn.onclick = (e) => {
-                    const gameId = e.target.dataset.gameId;
-                    const viewMode = document.getElementById(`view-mode-${gameId}`);
-                    const editMode = document.getElementById(`edit-mode-${gameId}`);
-                    
-                    if (e.target.textContent === 'Editar') {
-                        viewMode.style.display = 'none';
-                        editMode.style.display = 'block';
-                        e.target.textContent = 'Salvar';
-                        e.target.classList.remove('text-blue-400');
-                        e.target.classList.add('text-green-400');
-                    } else {
-                        const team1Input = document.getElementById(`team1-input-${gameId}`).value;
-                        const team2Input = document.getElementById(`team2-input-${gameId}`).value;
-                        
-                        const gameIndex = localData.games.findIndex(g => g.id === gameId);
-                        if (gameIndex > -1) {
-                            localData.games[gameIndex].team1 = team1Input;
-                            localData.games[gameIndex].team2 = team2Input;
-                            saveDataToFirestore();
-                        }
-                        
-                        viewMode.style.display = 'block';
-                        editMode.style.display = 'none';
-                        e.target.textContent = 'Editar';
-                        e.target.classList.remove('text-green-400');
-                        e.target.classList.add('text-blue-400');
-                    }
-                };
-            });
+            
+            const addForm = document.getElementById('add-participant-form');
+            addForm.onsubmit = (e) => {
+                e.preventDefault();
+                const nameInput = document.getElementById('new-participant-name');
+                addParticipant(nameInput.value.trim());
+                nameInput.value = '';
+            };
 
             const reportBtn = document.getElementById('generate-report-btn');
-            if(reportBtn) reportBtn.onclick = generateReport;
+            reportBtn.onclick = generateReport;
         }
 
         function addParticipant(name) {
-            if (!localData || !name) return;
+            if (!localData) return;
             const upperCaseName = name.toUpperCase();
-            if (localData.participants.includes(upperCaseName)) return;
+            if (!upperCaseName || localData.participants.includes(upperCaseName)) return;
             
             localData.participants.unshift(upperCaseName);
-            localData.predictions[upperCaseName] = getInitialData().predictions[upperCaseName] || initialGames.map(g => ({ gameId: g.id, score: '' }));
+            localData.predictions[upperCaseName] = masterGames.map(g => ({ gameId: g.id, score: '' }));
             saveDataToFirestore();
         }
         
@@ -553,3 +475,4 @@
     </script>
 </body>
 </html>
+
