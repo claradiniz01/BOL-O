@@ -311,7 +311,9 @@
                 const stageGames = localData.games.filter(g => g.stage === stage);
                 stageGames.forEach(game => {
                     const formattedDate = new Date(game.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-                    tableHTML += `<tr class="border-b border-gray-700"><td class="px-2 py-4 font-medium text-white"><span>${game.team1}</span> vs <span>${game.team2}</span></td><td class="px-2 py-4">${formattedDate} ${game.time}</td><td class="px-2 py-4 final-score-col"><input type="text" class="score-input final-score-input" data-game-id="${game.id}" value="${game.finalScore || ''}"></td>`;
+                    // UPDATED: Only IAGO can edit final scores
+                    const canEditFinalScore = currentUser === 'IAGO';
+                    tableHTML += `<tr class="border-b border-gray-700"><td class="px-2 py-4 font-medium text-white"><span>${game.team1}</span> vs <span>${game.team2}</span></td><td class="px-2 py-4">${formattedDate} ${game.time}</td><td class="px-2 py-4 final-score-col"><input type="text" class="score-input final-score-input" data-game-id="${game.id}" value="${game.finalScore || ''}" ${!canEditFinalScore ? 'disabled' : ''}></td>`;
                     if (showAllColumns) {
                         localData.participants.forEach(p => {
                             const prediction = (localData.predictions[p] || []).find(pred => pred.gameId === game.id) || { score: '' };
