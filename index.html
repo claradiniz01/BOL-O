@@ -78,7 +78,7 @@
     <div id="app-content" class="container mx-auto p-4 md:p-8 2xl:max-w-screen-2xl" style="display: none;">
         <header class="text-center mb-8">
             <h1 class="text-4xl font-bold text-white">🏆 Bolão do Brasileirão 🏆</h1>
-            <p class="text-xl text-gray-400 mt-2">Rodada 15 (19/07 - 20/07)</p>
+            <p class="text-xl text-gray-400 mt-2">Rodada 16 (26/07 - 27/07)</p>
         </header>
         
         <div class="grid lg:grid-cols-3 gap-8 mb-12">
@@ -116,19 +116,19 @@
         let localData = null;
         let isSaving = false;
         let unsubscribe;
-        let currentUser = sessionStorage.getItem('bolaoBrasileiraoRodada15CurrentUser') || null;
+        let currentUser = sessionStorage.getItem('bolaoBrasileiraoRodada16CurrentUser') || null;
 
         const masterGames = [
-            { id: 'jogo1', stage: 'Rodada 15', team1: 'Fortaleza', team2: 'Bahia', date: '2025-07-19', time: '16:00', finalScore: '' },
-            { id: 'jogo2', stage: 'Rodada 15', team1: 'Vasco', team2: 'Grêmio', date: '2025-07-19', time: '17:30', finalScore: '' },
-            { id: 'jogo3', stage: 'Rodada 15', team1: 'Mirassol', team2: 'Santos', date: '2025-07-19', time: '18:30', finalScore: '' },
-            { id: 'jogo4', stage: 'Rodada 15', team1: 'São Paulo', team2: 'Corinthians', date: '2025-07-19', time: '21:00', finalScore: '' },
-            { id: 'jogo5', stage: 'Rodada 15', team1: 'Internacional', team2: 'Ceará', date: '2025-07-20', time: '11:00', finalScore: '' },
-            { id: 'jogo6', stage: 'Rodada 15', team1: 'Cruzeiro', team2: 'Juventude', date: '2025-07-20', time: '16:00', finalScore: '' },
-            { id: 'jogo7', stage: 'Rodada 15', team1: 'Vitória', team2: 'RB Bragantino', date: '2025-07-20', time: '16:00', finalScore: '' },
-            { id: 'jogo8', stage: 'Rodada 15', team1: 'Palmeiras', team2: 'Atlético-MG', date: '2025-07-20', time: '17:30', finalScore: '' },
-            { id: 'jogo9', stage: 'Rodada 15', team1: 'Sport', team2: 'Botafogo', date: '2025-07-20', time: '17:30', finalScore: '' },
-            { id: 'jogo10', stage: 'Rodada 15', team1: 'Flamengo', team2: 'Fluminense', date: '2025-07-20', time: '19:30', finalScore: '' },
+            { id: 'jogo1', stage: 'Rodada 16', team1: 'Grêmio', team2: 'Fluminense', date: '2025-07-26', time: '16:00', finalScore: '' },
+            { id: 'jogo2', stage: 'Rodada 16', team1: 'Bahia', team2: 'Palmeiras', date: '2025-07-26', time: '17:30', finalScore: '' },
+            { id: 'jogo3', stage: 'Rodada 16', team1: 'Juventude', team2: 'Vasco', date: '2025-07-26', time: '18:30', finalScore: '' },
+            { id: 'jogo4', stage: 'Rodada 16', team1: 'Botafogo', team2: 'São Paulo', date: '2025-07-26', time: '21:00', finalScore: '' },
+            { id: 'jogo5', stage: 'Rodada 16', team1: 'Santos', team2: 'Sport', date: '2025-07-27', time: '11:00', finalScore: '' },
+            { id: 'jogo6', stage: 'Rodada 16', team1: 'Atlético-MG', team2: 'Vitória', date: '2025-07-27', time: '16:00', finalScore: '' },
+            { id: 'jogo7', stage: 'Rodada 16', team1: 'Corinthians', team2: 'Flamengo', date: '2025-07-27', time: '16:00', finalScore: '' },
+            { id: 'jogo8', stage: 'Rodada 16', team1: 'Ceará', team2: 'Fortaleza', date: '2025-07-27', time: '17:30', finalScore: '' },
+            { id: 'jogo9', stage: 'Rodada 16', team1: 'RB Bragantino', team2: 'Cruzeiro', date: '2025-07-27', time: '17:30', finalScore: '' },
+            { id: 'jogo10', stage: 'Rodada 16', team1: 'Mirassol', team2: 'Internacional', date: '2025-07-27', time: '19:30', finalScore: '' },
         ];
         
         const masterParticipants = ['KLEITON', 'WALBER', 'IAGO', 'JUDAS', 'ROBERTO', 'PEDRO', 'HÉRCULES', 'GALEGO', 'OSÉAS', 'YASSER', 'WANDERSON'];
@@ -164,7 +164,7 @@
         }
         
         function arePredictionsLocked(stage) {
-            const lockTime = new Date('2025-07-19T16:00:00');
+            const lockTime = new Date('2025-07-26T16:00:00');
             return new Date() >= lockTime;
         }
 
@@ -181,7 +181,7 @@
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 await signInAnonymously(getAuth(app));
-                bolaoDocRef = doc(db, 'bolao/brasileirao-rodada-15');
+                bolaoDocRef = doc(db, 'bolao/brasileirao-rodada-16');
                 
                 const docSnap = await getDoc(bolaoDocRef);
                 if (!docSnap.exists()) {
@@ -311,7 +311,6 @@
                 const stageGames = localData.games.filter(g => g.stage === stage);
                 stageGames.forEach(game => {
                     const formattedDate = new Date(game.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-                    // UPDATED: Only IAGO can edit final scores
                     const canEditFinalScore = currentUser === 'IAGO';
                     tableHTML += `<tr class="border-b border-gray-700"><td class="px-2 py-4 font-medium text-white"><span>${game.team1}</span> vs <span>${game.team2}</span></td><td class="px-2 py-4">${formattedDate} ${game.time}</td><td class="px-2 py-4 final-score-col"><input type="text" class="score-input final-score-input" data-game-id="${game.id}" value="${game.finalScore || ''}" ${!canEditFinalScore ? 'disabled' : ''}></td>`;
                     if (showAllColumns) {
@@ -362,7 +361,7 @@
 
         function logout() {
             currentUser = null;
-            sessionStorage.removeItem('bolaoBrasileiraoRodada15CurrentUser');
+            sessionStorage.removeItem('bolaoBrasileiraoRodada16CurrentUser');
             renderUI();
         }
 
@@ -391,7 +390,7 @@
                 if (pinExists) {
                     if (pin && localData.pins[selectedName] === pin) {
                         currentUser = selectedName;
-                        sessionStorage.setItem('bolaoBrasileiraoRodada15CurrentUser', currentUser);
+                        sessionStorage.setItem('bolaoBrasileiraoRodada16CurrentUser', currentUser);
                         hidePinModal();
                         renderUI();
                     } else {
@@ -409,7 +408,7 @@
                         localData.pins[selectedName] = pin;
                         await saveDataToFirestore();
                         currentUser = selectedName;
-                        sessionStorage.setItem('bolaoBrasileiraoRodada15CurrentUser', currentUser);
+                        sessionStorage.setItem('bolaoBrasileiraoRodada16CurrentUser', currentUser);
                         hidePinModal();
                         renderUI();
                     } else {
