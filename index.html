@@ -302,7 +302,8 @@
                 const nameInput = document.getElementById('new-participant-name');
                 const name = nameInput.value.trim().toUpperCase();
                 if (name && !localData.participants.includes(name)) {
-                    localData.participants.push(name);
+                    // UPDATED: Add new participant to the beginning of the list
+                    localData.participants.unshift(name);
                     saveDataToFirestore();
                 }
                 nameInput.value = '';
