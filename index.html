@@ -59,6 +59,11 @@
             <h1 class="text-4xl font-bold text-white">🏆 Bolão do Brasileirão 🏆</h1>
             <p class="text-xl text-gray-400 mt-2">Rodada 19</p>
         </header>
+
+        <div class="bg-blue-900 border border-blue-600 text-center p-4 rounded-lg mb-8">
+            <p class="font-bold text-lg">Bolão 10 reais</p>
+            <p class="text-gray-300">Pix: 06019128377</p>
+        </div>
         
         <div class="grid lg:grid-cols-3 gap-8 mb-12">
             <div id="ranking-section" class="lg:col-span-2"></div>
@@ -109,10 +114,23 @@
         ];
         
         function getInitialData() {
-             return { 
+            const initialParticipants = ['ALAN', 'ROBERTO', 'SÁVIO', 'WALBER', 'YASSER', 'GALEGO', 'OSÉAS', 'JUDAS', 'KLEITON', 'IAGO'];
+            const initialPredictions = {
+                'ALAN': [ {gameId: 'jogo1', score: '2x1'}, {gameId: 'jogo2', score: '3x0'}, {gameId: 'jogo3', score: '1x0'}, {gameId: 'jogo4', score: '2x2'}, {gameId: 'jogo5', score: '1x2'}, {gameId: 'jogo6', score: '2x0'}, {gameId: 'jogo7', score: '2x1'}, {gameId: 'jogo8', score: '1x2'}, {gameId: 'jogo9', score: '2x1'} ],
+                'ROBERTO': [ {gameId: 'jogo1', score: '3x0'}, {gameId: 'jogo2', score: '2x1'}, {gameId: 'jogo3', score: '1x1'}, {gameId: 'jogo4', score: '1x1'}, {gameId: 'jogo5', score: '1x0'}, {gameId: 'jogo6', score: '1x1'}, {gameId: 'jogo7', score: '0x1'}, {gameId: 'jogo8', score: '2x0'}, {gameId: 'jogo9', score: '2x1'} ],
+                'SÁVIO': [ {gameId: 'jogo1', score: '4x0'}, {gameId: 'jogo2', score: '2x0'}, {gameId: 'jogo3', score: '1x1'}, {gameId: 'jogo4', score: '0x0'}, {gameId: 'jogo5', score: '2x1'}, {gameId: 'jogo6', score: '2x0'}, {gameId: 'jogo7', score: '1x2'}, {gameId: 'jogo8', score: '3x1'}, {gameId: 'jogo9', score: '2x1'} ],
+                'WALBER': [ {gameId: 'jogo1', score: '0x0'}, {gameId: 'jogo2', score: '2x1'}, {gameId: 'jogo3', score: '1x0'}, {gameId: 'jogo4', score: '1x0'}, {gameId: 'jogo5', score: '1x0'}, {gameId: 'jogo6', score: '3x0'}, {gameId: 'jogo7', score: '2x2'}, {gameId: 'jogo8', score: '2x1'}, {gameId: 'jogo9', score: '2x0'} ],
+                'YASSER': [ {gameId: 'jogo1', score: '2x0'}, {gameId: 'jogo2', score: '1x1'}, {gameId: 'jogo3', score: '1x0'}, {gameId: 'jogo4', score: '0x1'}, {gameId: 'jogo5', score: '2x0'}, {gameId: 'jogo6', score: '1x1'}, {gameId: 'jogo7', score: '0x0'}, {gameId: 'jogo8', score: '2x1'}, {gameId: 'jogo9', score: '2x0'} ],
+                'GALEGO': [ {gameId: 'jogo1', score: '2x1'}, {gameId: 'jogo2', score: '2x1'}, {gameId: 'jogo3', score: '2x1'}, {gameId: 'jogo4', score: '0x2'}, {gameId: 'jogo5', score: '1x1'}, {gameId: 'jogo6', score: '1x1'}, {gameId: 'jogo7', score: '1x1'}, {gameId: 'jogo8', score: '1x1'}, {gameId: 'jogo9', score: '1x0'} ],
+                'OSÉAS': [ {gameId: 'jogo1', score: '2x0'}, {gameId: 'jogo2', score: '1x1'}, {gameId: 'jogo3', score: '1x0'}, {gameId: 'jogo4', score: '0x1'}, {gameId: 'jogo5', score: '1x2'}, {gameId: 'jogo6', score: '2x1'}, {gameId: 'jogo7', score: '0x2'}, {gameId: 'jogo8', score: '2x2'}, {gameId: 'jogo9', score: '2x0'} ],
+                'JUDAS': [ {gameId: 'jogo1', score: '2x2'}, {gameId: 'jogo2', score: '2x0'}, {gameId: 'jogo3', score: '1x1'}, {gameId: 'jogo4', score: '1x2'}, {gameId: 'jogo5', score: '1x1'}, {gameId: 'jogo6', score: '1x0'}, {gameId: 'jogo7', score: '2x1'}, {gameId: 'jogo8', score: '1x1'}, {gameId: 'jogo9', score: '0x0'} ],
+                'KLEITON': [ {gameId: 'jogo1', score: '3x1'}, {gameId: 'jogo2', score: '1x2'}, {gameId: 'jogo3', score: '2x1'}, {gameId: 'jogo4', score: '1x1'}, {gameId: 'jogo5', score: '2x2'}, {gameId: 'jogo6', score: '2x0'}, {gameId: 'jogo7', score: '0x1'}, {gameId: 'jogo8', score: '1x2'}, {gameId: 'jogo9', score: '3x1'} ],
+                'IAGO': [ {gameId: 'jogo1', score: '3x1'}, {gameId: 'jogo2', score: '2x0'}, {gameId: 'jogo3', score: '1x2'}, {gameId: 'jogo4', score: '1x0'}, {gameId: 'jogo5', score: '2x1'}, {gameId: 'jogo6', score: '2x0'}, {gameId: 'jogo7', score: '1x1'}, {gameId: 'jogo8', score: '2x0'}, {gameId: 'jogo9', score: '1x0'} ],
+            };
+            return { 
                 games: masterGames, 
-                participants: [], 
-                predictions: {}
+                participants: initialParticipants, 
+                predictions: initialPredictions
             };
         }
         
