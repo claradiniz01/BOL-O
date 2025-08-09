@@ -173,7 +173,7 @@
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 await signInAnonymously(getAuth(app));
-                bolaoDocRef = doc(db, 'bolao/brasileirao-rodada-19');
+                bolaoDocRef = doc(db, 'bolao/brasileirao-rodada-19-v2');
                 
                 const docSnap = await getDoc(bolaoDocRef);
                 if (!docSnap.exists()) {
@@ -382,4 +382,3 @@
     </script>
 </body>
 </html>
-
