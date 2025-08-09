@@ -57,13 +57,8 @@
     <div id="app-content" class="container mx-auto p-4 md:p-8 2xl:max-w-screen-2xl" style="display: none;">
         <header class="text-center mb-8">
             <h1 class="text-4xl font-bold text-white">🏆 Bolão do Brasileirão 🏆</h1>
-            <p class="text-xl text-gray-400 mt-2">Rodada 18</p>
+            <p class="text-xl text-gray-400 mt-2">Rodada 19</p>
         </header>
-
-        <div class="bg-blue-900 border border-blue-600 text-center p-4 rounded-lg mb-8">
-            <p class="font-bold text-lg">Bolão 10 reais</p>
-            <p class="text-gray-300">Pix: 06019128377</p>
-        </div>
         
         <div class="grid lg:grid-cols-3 gap-8 mb-12">
             <div id="ranking-section" class="lg:col-span-2"></div>
@@ -101,34 +96,23 @@
         let unsubscribe;
         let isAdminLoggedIn = sessionStorage.getItem('bolaoBrasileiraoAdmin') === 'true';
 
-        // UPDATED: Games and times corrected for Rodada 18
         const masterGames = [
-            { id: 'jogo1', stage: 'Rodada 18', team1: 'Sport', team2: 'Bahia', date: '2025-08-02', time: '16:00', finalScore: '' },
-            { id: 'jogo2', stage: 'Rodada 18', team1: 'Mirassol', team2: 'Vasco', date: '2025-08-02', time: '18:30', finalScore: '' },
-            { id: 'jogo3', stage: 'Rodada 18', team1: 'Fluminense', team2: 'Grêmio', date: '2025-08-02', time: '21:00', finalScore: '' },
-            { id: 'jogo4', stage: 'Rodada 18', team1: 'Corinthians', team2: 'Fortaleza', date: '2025-08-03', time: '16:00', finalScore: '' },
-            { id: 'jogo5', stage: 'Rodada 18', team1: 'Botafogo', team2: 'Cruzeiro', date: '2025-08-03', time: '16:00', finalScore: '' },
-            { id: 'jogo6', stage: 'Rodada 18', team1: 'Ceará', team2: 'Flamengo', date: '2025-08-03', time: '18:30', finalScore: '' },
-            { id: 'jogo7', stage: 'Rodada 18', team1: 'Atlético-MG', team2: 'RB Bragantino', date: '2025-08-03', time: '18:30', finalScore: '' },
-            { id: 'jogo8', stage: 'Rodada 18', team1: 'Vitória', team2: 'Palmeiras', date: '2025-08-03', time: '19:30', finalScore: '' },
-            { id: 'jogo9', stage: 'Rodada 18', team1: 'Internacional', team2: 'São Paulo', date: '2025-08-03', time: '20:30', finalScore: '' },
-            { id: 'jogo10', stage: 'Rodada 18', team1: 'Santos', team2: 'Juventude', date: '2025-08-04', time: '20:00', finalScore: '' },
+            { id: 'jogo1', stage: 'Rodada 19', team1: 'Flamengo', team2: 'Mirassol', date: '2025-08-09', time: '18:30', finalScore: '' },
+            { id: 'jogo2', stage: 'Rodada 19', team1: 'São Paulo', team2: 'Vitória', date: '2025-08-09', time: '18:30', finalScore: '' },
+            { id: 'jogo3', stage: 'Rodada 19', team1: 'RB Bragantino', team2: 'Internacional', date: '2025-08-09', time: '18:30', finalScore: '' },
+            { id: 'jogo4', stage: 'Rodada 19', team1: 'Fortaleza', team2: 'Botafogo', date: '2025-08-09', time: '20:30', finalScore: '' },
+            { id: 'jogo5', stage: 'Rodada 19', team1: 'Bahia', team2: 'Fluminense', date: '2025-08-09', time: '21:00', finalScore: '' },
+            { id: 'jogo6', stage: 'Rodada 19', team1: 'Palmeiras', team2: 'Ceará', date: '2025-08-10', time: '16:00', finalScore: '' },
+            { id: 'jogo7', stage: 'Rodada 19', team1: 'Vasco', team2: 'Atlético-MG', date: '2025-08-10', time: '16:00', finalScore: '' },
+            { id: 'jogo8', stage: 'Rodada 19', team1: 'Cruzeiro', team2: 'Santos', date: '2025-08-10', time: '18:30', finalScore: '' },
+            { id: 'jogo9', stage: 'Rodada 19', team1: 'Grêmio', team2: 'Sport', date: '2025-08-10', time: '20:30', finalScore: '' },
         ];
         
         function getInitialData() {
-            // UPDATED: Participant name corrected to YASSER
-            const initialParticipants = ['ROBERTO', 'KLEITON', 'WESLLEY', 'ALAN', 'YASSER'];
-            const initialPredictions = {
-                'ROBERTO': [ {gameId: 'jogo1', score: '0x2'}, {gameId: 'jogo2', score: '2x0'}, {gameId: 'jogo3', score: '1x1'}, {gameId: 'jogo4', score: '1x1'}, {gameId: 'jogo5', score: '2x1'}, {gameId: 'jogo6', score: '1x1'}, {gameId: 'jogo7', score: '2x1'}, {gameId: 'jogo8', score: '0x1'}, {gameId: 'jogo9', score: '1x2'} ],
-                'KLEITON': [ {gameId: 'jogo1', score: '0x2'}, {gameId: 'jogo2', score: '2x1'}, {gameId: 'jogo3', score: '1x1'}, {gameId: 'jogo4', score: '3x1'}, {gameId: 'jogo5', score: '2x1'}, {gameId: 'jogo6', score: '1x3'}, {gameId: 'jogo7', score: '0x1'}, {gameId: 'jogo8', score: '2x0'}, {gameId: 'jogo9', score: '1x1'} ],
-                'WESLLEY': [ {gameId: 'jogo1', score: '1x3'}, {gameId: 'jogo2', score: '2x2'}, {gameId: 'jogo3', score: '0x0'}, {gameId: 'jogo4', score: '1x2'}, {gameId: 'jogo5', score: '1x1'}, {gameId: 'jogo6', score: '1x2'}, {gameId: 'jogo7', score: '0x1'}, {gameId: 'jogo8', score: '0x1'}, {gameId: 'jogo9', score: '1x0'} ],
-                'ALAN':    [ {gameId: 'jogo1', score: '1x1'}, {gameId: 'jogo2', score: '1x0'}, {gameId: 'jogo3', score: '2x1'}, {gameId: 'jogo4', score: '1x1'}, {gameId: 'jogo5', score: '2x1'}, {gameId: 'jogo6', score: '1x2'}, {gameId: 'jogo7', score: '1x0'}, {gameId: 'jogo8', score: '0x2'}, {gameId: 'jogo9', score: '1x2'} ],
-                'YASSER':  [ {gameId: 'jogo1', score: '1x1'}, {gameId: 'jogo2', score: '2x0'}, {gameId: 'jogo3', score: '1x1'}, {gameId: 'jogo4', score: '1x0'}, {gameId: 'jogo5', score: '2x0'}, {gameId: 'jogo6', score: '0x2'}, {gameId: 'jogo7', score: '1x1'}, {gameId: 'jogo8', score: '1x1'}, {gameId: 'jogo9', score: '1x0'} ],
-            };
-            return { 
+             return { 
                 games: masterGames, 
-                participants: initialParticipants, 
-                predictions: initialPredictions
+                participants: [], 
+                predictions: {}
             };
         }
         
@@ -154,7 +138,7 @@
         }
         
         function arePredictionsLocked() {
-            const lockTime = new Date('2025-08-02T16:00:00');
+            const lockTime = new Date('2025-08-09T18:29:00');
             return new Date() >= lockTime;
         }
 
@@ -171,7 +155,7 @@
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 await signInAnonymously(getAuth(app));
-                bolaoDocRef = doc(db, 'bolao/brasileirao-rodada-18');
+                bolaoDocRef = doc(db, 'bolao/brasileirao-rodada-19');
                 
                 const docSnap = await getDoc(bolaoDocRef);
                 if (!docSnap.exists()) {
